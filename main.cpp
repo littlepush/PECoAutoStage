@@ -56,6 +56,7 @@ enum RPN_ITEM_TYPE {
     // Items
     RPN_NUMBER              = 0,
     RPN_STRING,
+    RPN_PATH,
 
     // Operators
     RPN_SET,
@@ -69,6 +70,7 @@ enum RPN_ITEM_TYPE {
     RPN_GREAT_THAN,
     RPN_GREAT_EQUAL,
     RPN_NODE,
+    RPN_EXEC,
 
     RPN_LEFT_BRACKETS,      // [
     RPN_RIGHT_BRACKETS,     // ]
@@ -90,7 +92,6 @@ class costage {
 
 
     Json::Value         root_;      // Root Node of every stage
-    Json::Value*        pnode_;
     std::string         err_msg_;   // Last Error Message
     bool                result_;    // The final result of the stage
 
@@ -106,14 +107,14 @@ protected:
         if ( op_stack_.size() == 0 ) {
             op_stack_.push(op); return true;
         }
-        if ( op.type == RPN_ITEM_TYPE::RPN_LEFT_PARENTHESES ) {
-            RPNItem& _top = op_stack_.top();
-            if ( _top.type == RPN_ITEM_TYPE::RPN_NODE ) {
-                RPNItem _d{RPN_ITEM_TYPE::RPN_DUMMY};
-                item_stack_.push(_d);
-            }
-            op_stack_.push(op); return true;
-        }
+        // if ( op.type == RPN_ITEM_TYPE::RPN_LEFT_PARENTHESES && op_stack_.size() > 0 ) {
+        //     RPNItem& _top = op_stack_.top();
+        //     if ( _top.type == RPN_ITEM_TYPE::RPN_NODE ) {
+        //         RPNItem _d{RPN_ITEM_TYPE::RPN_DUMMY};
+        //         item_stack_.push(_d);
+        //     }
+        //     op_stack_.push(op); return true;
+        // }
         if ( op.type == RPN_ITEM_TYPE::RPN_RIGHT_PARENTHESES ) {
             while ( op_stack_.size() != 0 && op_stack_.top().type != RPN_ITEM_TYPE::RPN_LEFT_PARENTHESES ) {
                 item_stack_.push(op_stack_.top());
@@ -141,7 +142,7 @@ protected:
         while (
             op_stack_.size() > 0 && 
             op_stack_.top().type > op.type && 
-            op_stack_.top().type != RPN_ITEM_TYPE::RPN_RIGHT_PARENTHESES 
+            op_stack_.top().type != RPN_ITEM_TYPE::RPN_LEFT_PARENTHESES 
         ) {
             item_stack_.push(op_stack_.top());
             op_stack_.pop();
@@ -149,22 +150,58 @@ protected:
         op_stack_.push(op);
         return true;
     }
+
+    Json::Value* node_by_path_(const Json::Value& path_value) {
+        Json::Value* _p = &root_;
+        size_t _i = 0;
+        for ( auto i = path_value.begin(); i != path_value.end(); ++i, ++_i ) {
+            std::string _node = (*i).asString();
+            if ( !_p->isMember(_node) ) {
+                if ( _i == (path_value.size() - 1) ) {
+                    // Already reach end of the path
+                    // Add a null
+                    (*_p)[_node] = Json::Value(Json::nullValue);
+                } else {
+                    (*_p)[_node] = Json::Value(Json::objectValue);
+                }
+            }
+            _p = &(*_p)[_node];
+        }
+        return _p;
+    }
 public: 
 
     // Result Reference
     const bool&         result;
 
-    costage() : pnode_(NULL), result_( true ), result(result_) { }
+    costage() : result_( true ), result(result_) { }
 
     const std::string& last_error_msg() const { return err_msg_; }
 
     CIN_STATE code_parser( std::string&& code ) {
         #define __GET_C_N   (i == pending_code_.size() - 1) ? '\0' : pending_code_[i + 1]
         pending_code_ += code;
+        std::map< int, bool >   _nodelv;
+        int                     _plv = 0;
+
         for ( size_t i = 0; i < pending_code_.size(); ++i ) {
             char c = pending_code_[i];
             char c_n = __GET_C_N;
             if ( std::isspace(c) ) continue;    // ignore unused space
+
+            if ( c == '+' ) {
+                RPNItem _i{RPN_ITEM_TYPE::RPN_PLUS, Json::Value(c)};
+                if ( !operator_parser_(i, _i) ) 
+                    return CIN_STATE::ERROR;
+                continue;
+            }
+
+            if ( c == '-' ) {
+                RPNItem _i{RPN_ITEM_TYPE::RPN_MINUS, Json::Value(c)};
+                if ( !operator_parser_(i, _i) ) 
+                    return CIN_STATE::ERROR;
+                continue;
+            }
 
             // Try to test if this is a number
             char *_pend = NULL;
@@ -172,7 +209,7 @@ public:
             if ( _pend != (pending_code_.c_str() + i) ) {
                 if ( _n == HUGE_VAL || errno == ERANGE ) {
                     // Failed to get the number
-                    err_msg_ = "Invalidate number at index: " + std::to_string(i + 1);
+                    err_msg_ = "Invalidate number at index: " + std::to_string(i);
                     return CIN_STATE::ERROR;
                 }
 
@@ -188,6 +225,9 @@ public:
                 RPNItem _item{RPN_ITEM_TYPE::RPN_NODE, Json::Value(".")};
                 if ( !operator_parser_(i, _item) )
                     return CIN_STATE::ERROR;
+                if ( c_n == '(' ) {
+                    _nodelv[_plv] = true;
+                }
                 continue;
             }
             if ( c == '$' ) {
@@ -196,7 +236,7 @@ public:
                     RPNItem _item{RPN_ITEM_TYPE::RPN_STRING, Json::Value("$")};
                     item_stack_.push(_item);
                 } else {
-                    err_msg_ = "Invalidate '$' at index: " + std::to_string(i + 1);
+                    err_msg_ = "Invalidate '$' at index: " + std::to_string(i);
                     return CIN_STATE::ERROR;
                 }
                 continue;
@@ -220,17 +260,6 @@ public:
                 item_stack_.push(_item);
                 continue;
             }
-            if ( c == '+' ) {
-                RPNItem _i{RPN_ITEM_TYPE::RPN_PLUS, Json::Value(c)};
-                if ( !operator_parser_(i, _i) ) 
-                    return CIN_STATE::ERROR;
-                continue;
-            }
-            if ( c == '-' ) {
-                RPNItem _i{RPN_ITEM_TYPE::RPN_MINUS, Json::Value(c)};
-                if ( !operator_parser_(i, _i) ) 
-                    return CIN_STATE::ERROR;
-            }
             if ( c == '*' ) {
                 RPNItem _i{RPN_ITEM_TYPE::RPN_TIMES, Json::Value(c)};
                 if ( !operator_parser_(i, _i) )
@@ -245,6 +274,7 @@ public:
             }
             if ( c == '>' ) {
                 auto _t = (c_n == '=') ? RPN_ITEM_TYPE::RPN_GREAT_EQUAL : RPN_ITEM_TYPE::RPN_GREAT_THAN;
+                if ( _t == RPN_ITEM_TYPE::RPN_GREAT_EQUAL ) ++i;  // skip another '='
                 RPNItem _i{_t, Json::Value(c)};
                 if ( !operator_parser_(i, _i) )
                     return CIN_STATE::ERROR;
@@ -252,6 +282,7 @@ public:
             }
             if ( c == '<' ) {
                 auto _t = (c_n == '=') ? RPN_ITEM_TYPE::RPN_LESS_EQUAL : RPN_ITEM_TYPE::RPN_LESS_THAN;
+                if ( _t == RPN_ITEM_TYPE::RPN_LESS_EQUAL ) ++i;  // skip another '='
                 RPNItem _i{_t, Json::Value(c)};
                 if ( !operator_parser_(i, _i) )
                     return CIN_STATE::ERROR;
@@ -259,6 +290,7 @@ public:
             }
             if ( c == '=' ) {
                 auto _t = (c_n == '=') ? RPN_ITEM_TYPE::RPN_EQUAL : RPN_ITEM_TYPE::RPN_SET;
+                if ( _t == RPN_ITEM_TYPE::RPN_EQUAL ) ++i;  // skip another '='
                 RPNItem _i{_t, Json::Value(c)};
                 if ( !operator_parser_(i, _i) )
                     return CIN_STATE::ERROR;
@@ -268,12 +300,19 @@ public:
                 RPNItem _i{RPN_ITEM_TYPE::RPN_LEFT_PARENTHESES, Json::Value(c)};
                 if ( !operator_parser_(i, _i) )
                     return CIN_STATE::ERROR;
+                _plv += 1;
                 continue;
             }
             if ( c == ')' ) {
+                _plv -= 1;
                 RPNItem _i{RPN_ITEM_TYPE::RPN_RIGHT_PARENTHESES, Json::Value(c)};
                 if ( !operator_parser_(i, _i) )
                     return CIN_STATE::ERROR;
+                if ( _nodelv.find(_plv) != _nodelv.end() ) {
+                    _nodelv.erase(_plv);
+                    RPNItem _n{RPN_ITEM_TYPE::RPN_NODE, Json::Value(".")};
+                    if ( !operator_parser_(i, _n) ) return CIN_STATE::ERROR;
+                }
                 continue;
             }
             if ( c == '[' ) {
@@ -302,11 +341,12 @@ public:
             }
             // only left case is a normal node name
             if ( !std::isalpha(c) && c != '_' ) {
-                err_msg_ = std::string("Invalidate '") + std::string((char)c, 1) + "' at index: " + std::to_string(i + 1);
+                err_msg_ = std::string("Invalidate '") + std::string((char)c, 1) + 
+                    "' at index: " + std::to_string(i);
                 return CIN_STATE::ERROR;
             }
             std::string _s(1, c);
-            while ( std::isalpha(c_n) || std::isdigit(c_n) || c_n == '_' || c_n == '-' ) {
+            while ( std::isalpha(c_n) || std::isdigit(c_n) || c_n == '_' ) {
                 _s += c_n;
                 ++i;
                 c_n = __GET_C_N;
@@ -315,6 +355,10 @@ public:
             item_stack_.push(_item);
             if ( c_n != '.' ) {
                 RPNItem _n{RPN_ITEM_TYPE::RPN_NODE, Json::Value(".")};
+                if ( !operator_parser_(i, _n) ) return CIN_STATE::ERROR;
+            }
+            if ( c_n == '(' ) {
+                RPNItem _n{RPN_ITEM_TYPE::RPN_EXEC, Json::Value("e")};
                 if ( !operator_parser_(i, _n) ) return CIN_STATE::ERROR;
             }
         }
@@ -365,12 +409,24 @@ public:
                     if ( _v1.type == RPN_DUMMY || _v2.type == RPN_DUMMY ) {
                         err_msg_ = "missing argument around '+'";
                         return CRUN_STATE::ASSERT;
-                    } else if ( _v1.type == RPN_STRING || _v2.type == RPN_STRING ) {
-                        RPNItem _r{RPN_STRING, _v2.value.asString() + _v1.value.asString()};
+                    }
+                    Json::Value &_jv1 = (_v1.type != RPN_PATH) ? _v1.value : *(node_by_path_(_v1.value));
+                    Json::Value &_jv2 = (_v2.type != RPN_PATH) ? _v2.value : *(node_by_path_(_v2.value));
+                    if ( _v2.type == RPN_STRING || (_v2.type == RPN_PATH && _jv2.isString() ) ) {
+                        RPNItem _r{RPN_STRING, _jv2.asString() + _jv1.asString()};
+                        _value_stack.push(_r);
+                    } else if ( _v1.type == RPN_STRING || (_v1.type == RPN_PATH && _jv1.isString()) ) {
+                        RPNItem _r{RPN_STRING, _jv2.asString() + _jv1.asString()};
+                        _value_stack.push(_r);
+                    } else if ( 
+                        (_v1.type == RPN_NUMBER || (_v1.type == RPN_PATH && _jv1.isNumeric())) &&
+                        (_v2.type == RPN_NUMBER || (_v2.type == RPN_PATH && _jv2.isNumeric()))
+                    ) {
+                        RPNItem _r{RPN_NUMBER, _jv2.asDouble() + _jv1.asDouble()};
                         _value_stack.push(_r);
                     } else {
-                        RPNItem _r{RPN_NUMBER, _v2.value.asDouble() + _v1.value.asDouble()};
-                        _value_stack.push(_r);
+                        err_msg_ = "invalidate type around '+'";
+                        return CRUN_STATE::ASSERT;
                     }
                     break;
                 }
@@ -385,12 +441,19 @@ public:
                     if ( _v1.type == RPN_DUMMY || _v2.type == RPN_DUMMY ) {
                         err_msg_ = "missing argument around '-'";
                         return CRUN_STATE::ASSERT;
-                    } else if ( _v1.type == RPN_STRING || _v2.type == RPN_STRING ) {
-                        err_msg_ = "string not support operator '-'";
-                        return CRUN_STATE::ASSERT;
-                    } else {
-                        RPNItem _r{RPN_NUMBER, _v2.value.asDouble() - _v1.value.asDouble()};
+                    }
+                    Json::Value &_jv1 = (_v1.type != RPN_PATH) ? _v1.value : *(node_by_path_(_v1.value));
+                    Json::Value &_jv2 = (_v2.type != RPN_PATH) ? _v2.value : *(node_by_path_(_v2.value));
+
+                    if ( 
+                        (_v1.type == RPN_NUMBER || (_v1.type == RPN_PATH && _jv1.isNumeric())) &&
+                        (_v2.type == RPN_NUMBER || (_v2.type == RPN_PATH && _jv2.isNumeric()))
+                    ) {
+                        RPNItem _r{RPN_NUMBER, _jv2.asDouble() - _jv1.asDouble()};
                         _value_stack.push(_r);
+                    } else {
+                        err_msg_ = "invalidate type around '-'";
+                        return CRUN_STATE::ASSERT;
                     }
                     break;
                 }
@@ -405,12 +468,19 @@ public:
                     if ( _v1.type == RPN_DUMMY || _v2.type == RPN_DUMMY ) {
                         err_msg_ = "missing argument around '*'";
                         return CRUN_STATE::ASSERT;
-                    } else if ( _v1.type == RPN_STRING || _v2.type == RPN_STRING ) {
-                        err_msg_ = "string not support operator '*'";
-                        return CRUN_STATE::ASSERT;
-                    } else {
-                        RPNItem _r{RPN_NUMBER, _v2.value.asDouble() * _v1.value.asDouble()};
+                    }
+                    Json::Value &_jv1 = (_v1.type != RPN_PATH) ? _v1.value : *(node_by_path_(_v1.value));
+                    Json::Value &_jv2 = (_v2.type != RPN_PATH) ? _v2.value : *(node_by_path_(_v2.value));
+
+                    if ( 
+                        (_v1.type == RPN_NUMBER || (_v1.type == RPN_PATH && _jv1.isNumeric())) &&
+                        (_v2.type == RPN_NUMBER || (_v2.type == RPN_PATH && _jv2.isNumeric()))
+                    ) {
+                        RPNItem _r{RPN_NUMBER, _jv2.asDouble() * _jv1.asDouble()};
                         _value_stack.push(_r);
+                    } else {
+                        err_msg_ = "invalidate type around '*'";
+                        return CRUN_STATE::ASSERT;
                     }
                     break;
                 }
@@ -425,32 +495,43 @@ public:
                     if ( _v1.type == RPN_DUMMY || _v2.type == RPN_DUMMY ) {
                         err_msg_ = "missing argument around '/'";
                         return CRUN_STATE::ASSERT;
-                    } else if ( _v1.type == RPN_STRING || _v2.type == RPN_STRING ) {
-                        err_msg_ = "string not support operator '/'";
-                        return CRUN_STATE::ASSERT;
-                    } else {
-                        RPNItem _r{RPN_NUMBER, _v2.value.asDouble() / _v1.value.asDouble()};
+                    }
+                    Json::Value &_jv1 = (_v1.type != RPN_PATH) ? _v1.value : *(node_by_path_(_v1.value));
+                    Json::Value &_jv2 = (_v2.type != RPN_PATH) ? _v2.value : *(node_by_path_(_v2.value));
+
+                    if ( 
+                        (_v1.type == RPN_NUMBER || (_v1.type == RPN_PATH && _jv1.isNumeric())) &&
+                        (_v2.type == RPN_NUMBER || (_v2.type == RPN_PATH && _jv2.isNumeric()))
+                    ) {
+                        RPNItem _r{RPN_NUMBER, _jv2.asDouble() / _jv1.asDouble()};
                         _value_stack.push(_r);
+                    } else {
+                        err_msg_ = "invalidate type around '/'";
+                        return CRUN_STATE::ASSERT;
                     }
                     break;                    
                 }
             case RPN_SET : 
                 {
-                    if ( pnode_ == NULL ) {
-                        err_msg_ = "invalidate left value of '='";
-                        return CRUN_STATE::ASSERT;
-                    }
-                    if ( pnode_ == &root_ ) {
-                        err_msg_ = "cannot set a value direct to root node";
-                        return CRUN_STATE::ASSERT;
-                    }
-                    if ( _value_stack.size() == 0 ) {
-                        err_msg_ = "missing right value '='";
+                    if ( _value_stack.size() < 2 ) {
+                        err_msg_ = "invalidate '=', missing left side";
                         return CRUN_STATE::ASSERT;
                     }
                     RPNItem _v1 = _value_stack.top(); _value_stack.pop();
-                    *pnode_ = _v1.value;
-                    pnode_ = NULL;
+                    RPNItem _v2 = _value_stack.top(); _value_stack.pop();
+                    if ( _v1.type == RPN_DUMMY || _v2.type == RPN_DUMMY ) {
+                        err_msg_ = "missing argument around '='";
+                        return CRUN_STATE::ASSERT;
+                    }
+                    if ( _v2.type != RPN_PATH ) {
+                        err_msg_ = "left side must be a path";
+                        return CRUN_STATE::ASSERT;
+                    }
+                    Json::Value &_jv1 = (_v1.type != RPN_PATH) ? _v1.value : *(node_by_path_(_v1.value));
+                    Json::Value &_jv2 = *(node_by_path_(_v2.value));
+
+                    _jv2 = _jv1;
+
                     break;                    
                 }
             case RPN_NODE : 
@@ -459,23 +540,13 @@ public:
                         err_msg_ = "invalidate path begin with '.'";
                         return CRUN_STATE::ASSERT;
                     }
+                    if ( _value_stack.top().type != RPN_STRING ) {
+                        err_msg_ = "invalidate path";
+                        return CRUN_STATE::ASSERT;
+                    }
+
                     _node = _value_stack.top().value.asString();
                     _value_stack.pop();
-
-                    if ( pnode_ != NULL ) {
-                        // Next operator need two node, so push current node to the stack
-                        if ( pnode_->isConvertibleTo(Json::stringValue) ) {
-                            RPNItem _i{RPN_STRING, *pnode_};
-                            _value_stack.push(_i);
-                        } else if ( pnode_->isConvertibleTo(Json::realValue) ) {
-                            RPNItem _i{RPN_NUMBER, *pnode_};
-                            _value_stack.push(_i);
-                        } else {
-                            err_msg_ = "undefined error arround '$'";
-                            return CRUN_STATE::ASSERT;
-                        }
-                        pnode_ = NULL;
-                    }
 
                     // Path unfinished
                     if ( _node != "$" ) {
@@ -483,21 +554,14 @@ public:
                         break;
                     }
 
-                    pnode_ = &root_;
+                    Json::Value _node_path(Json::arrayValue);
                     while ( _node_stack.size() > 0 ) {
                         _node = _node_stack.top();
                         _node_stack.pop();
-                        if ( !pnode_->isMember(_node) ) {
-                            if ( _node_stack.size() == 0 ) {
-                                // Already reach end of the path
-                                // Add a null
-                                (*pnode_)[_node] = Json::Value(Json::nullValue);
-                            } else {
-                                (*pnode_)[_node] = Json::Value(Json::objectValue);
-                            }
-                        }
-                        pnode_ = &(*pnode_)[_node];
+                        _node_path.append(_node);
                     }
+                    RPNItem _node_ref{RPN_PATH, _node_path};
+                    _value_stack.push(_node_ref);
                     break;
                 }
             default : 
