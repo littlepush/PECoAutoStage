@@ -36,85 +36,28 @@ using namespace pe;
 #include <conet.h>
 using namespace pe::co;
 
+#include "costage.h"
+using namespace coas;
+
 int g_return = 0;
 
-enum CIN_STATE {
-    DONE,
-    UNFINISHED,
-    ERROR
-};
-
-enum CRUN_STATE {
-    OK,
-    ASSERT,
-    RETURN
-};
-
-enum RPN_ITEM_TYPE {
-    RPN_DUMMY               = -1,
-
-    // Items
-    RPN_NUMBER              = 0,
-    RPN_STRING,
-    RPN_PATH,
-
-    // Operators
-    RPN_SET,
-    RPN_PLUS,
-    RPN_MINUS,
-    RPN_TIMES,
-    RPN_DIVID,
-    RPN_EQUAL,
-    RPN_LESS_THAN,
-    RPN_LESS_EQUAL,
-    RPN_GREAT_THAN,
-    RPN_GREAT_EQUAL,
-    RPN_NODE,
-    RPN_EXEC,
-
-    RPN_LEFT_BRACKETS,      // [
-    RPN_RIGHT_BRACKETS,     // ]
-
-    RPN_LEFT_BRACES,        // {
-    RPN_RIGHT_BRACES,       // }
-
-    RPN_LEFT_PARENTHESES,   // (
-    RPN_RIGHT_PARENTHESES   // )
-};
-
-struct RPNItem {
-    RPN_ITEM_TYPE           type;
-    Json::Value             value;
-};
-
-class costage {
-    typedef  std::stack< RPNItem >  stack_type;
-
-
-    Json::Value         root_;      // Root Node of every stage
-    std::string         err_msg_;   // Last Error Message
-    bool                result_;    // The final result of the stage
-
-    std::string         pending_code_;
-
-    // The RPN Stack
-    stack_type          op_stack_;
-    stack_type          item_stack_;
-    stack_type          exec_stack_;
-
-protected: 
     bool operator_parser_( size_t index, RPNItem& op ) {
+        if ( op.type == RPN_ITEM_TYPE::RPN_RIGHT_BRACKETS ) {
+            while ( op_stack_.size() != 0 && op_stack_.top().type != RPN_ITEM_TYPE::RPN_LEFT_BRACKETS ) {
+                item_stack_.push(op_stack_.top());
+                op_stack_.pop();
+            }
+            if ( op_stack_.size() == 0 ) {
+                err_msg_ = "unmatched ']' at index: " + std::to_string(index);
+                return false;
+            }
+            RPNItem _i{RPN_ITEM_TYPE::RPN_INDEX, Json::Value(1)};
+            item_stack_.push(_i);
+            return true;
+        }
         if ( op_stack_.size() == 0 ) {
             op_stack_.push(op); return true;
         }
-        // if ( op.type == RPN_ITEM_TYPE::RPN_LEFT_PARENTHESES && op_stack_.size() > 0 ) {
-        //     RPNItem& _top = op_stack_.top();
-        //     if ( _top.type == RPN_ITEM_TYPE::RPN_NODE ) {
-        //         RPNItem _d{RPN_ITEM_TYPE::RPN_DUMMY};
-        //         item_stack_.push(_d);
-        //     }
-        //     op_stack_.push(op); return true;
-        // }
         if ( op.type == RPN_ITEM_TYPE::RPN_RIGHT_PARENTHESES ) {
             while ( op_stack_.size() != 0 && op_stack_.top().type != RPN_ITEM_TYPE::RPN_LEFT_PARENTHESES ) {
                 item_stack_.push(op_stack_.top());
@@ -151,24 +94,6 @@ protected:
         return true;
     }
 
-    Json::Value* node_by_path_(const Json::Value& path_value) {
-        Json::Value* _p = &root_;
-        size_t _i = 0;
-        for ( auto i = path_value.begin(); i != path_value.end(); ++i, ++_i ) {
-            std::string _node = (*i).asString();
-            if ( !_p->isMember(_node) ) {
-                if ( _i == (path_value.size() - 1) ) {
-                    // Already reach end of the path
-                    // Add a null
-                    (*_p)[_node] = Json::Value(Json::nullValue);
-                } else {
-                    (*_p)[_node] = Json::Value(Json::objectValue);
-                }
-            }
-            _p = &(*_p)[_node];
-        }
-        return _p;
-    }
 public: 
 
     // Result Reference
@@ -394,7 +319,6 @@ public:
             exec_stack_.pop();
 
             switch( _rpn.type ) {
-            case RPN_DUMMY : 
             case RPN_NUMBER : 
             case RPN_STRING :
                 _value_stack.push(_rpn); break;
@@ -406,10 +330,6 @@ public:
                     }
                     RPNItem _v1 = _value_stack.top(); _value_stack.pop();
                     RPNItem _v2 = _value_stack.top(); _value_stack.pop();
-                    if ( _v1.type == RPN_DUMMY || _v2.type == RPN_DUMMY ) {
-                        err_msg_ = "missing argument around '+'";
-                        return CRUN_STATE::ASSERT;
-                    }
                     Json::Value &_jv1 = (_v1.type != RPN_PATH) ? _v1.value : *(node_by_path_(_v1.value));
                     Json::Value &_jv2 = (_v2.type != RPN_PATH) ? _v2.value : *(node_by_path_(_v2.value));
                     if ( _v2.type == RPN_STRING || (_v2.type == RPN_PATH && _jv2.isString() ) ) {
@@ -438,10 +358,6 @@ public:
                     }
                     RPNItem _v1 = _value_stack.top(); _value_stack.pop();
                     RPNItem _v2 = _value_stack.top(); _value_stack.pop();
-                    if ( _v1.type == RPN_DUMMY || _v2.type == RPN_DUMMY ) {
-                        err_msg_ = "missing argument around '-'";
-                        return CRUN_STATE::ASSERT;
-                    }
                     Json::Value &_jv1 = (_v1.type != RPN_PATH) ? _v1.value : *(node_by_path_(_v1.value));
                     Json::Value &_jv2 = (_v2.type != RPN_PATH) ? _v2.value : *(node_by_path_(_v2.value));
 
@@ -465,10 +381,6 @@ public:
                     }
                     RPNItem _v1 = _value_stack.top(); _value_stack.pop();
                     RPNItem _v2 = _value_stack.top(); _value_stack.pop();
-                    if ( _v1.type == RPN_DUMMY || _v2.type == RPN_DUMMY ) {
-                        err_msg_ = "missing argument around '*'";
-                        return CRUN_STATE::ASSERT;
-                    }
                     Json::Value &_jv1 = (_v1.type != RPN_PATH) ? _v1.value : *(node_by_path_(_v1.value));
                     Json::Value &_jv2 = (_v2.type != RPN_PATH) ? _v2.value : *(node_by_path_(_v2.value));
 
@@ -492,10 +404,6 @@ public:
                     }
                     RPNItem _v1 = _value_stack.top(); _value_stack.pop();
                     RPNItem _v2 = _value_stack.top(); _value_stack.pop();
-                    if ( _v1.type == RPN_DUMMY || _v2.type == RPN_DUMMY ) {
-                        err_msg_ = "missing argument around '/'";
-                        return CRUN_STATE::ASSERT;
-                    }
                     Json::Value &_jv1 = (_v1.type != RPN_PATH) ? _v1.value : *(node_by_path_(_v1.value));
                     Json::Value &_jv2 = (_v2.type != RPN_PATH) ? _v2.value : *(node_by_path_(_v2.value));
 
@@ -519,10 +427,6 @@ public:
                     }
                     RPNItem _v1 = _value_stack.top(); _value_stack.pop();
                     RPNItem _v2 = _value_stack.top(); _value_stack.pop();
-                    if ( _v1.type == RPN_DUMMY || _v2.type == RPN_DUMMY ) {
-                        err_msg_ = "missing argument around '='";
-                        return CRUN_STATE::ASSERT;
-                    }
                     if ( _v2.type != RPN_PATH ) {
                         err_msg_ = "left side must be a path";
                         return CRUN_STATE::ASSERT;
@@ -563,6 +467,14 @@ public:
                     RPNItem _node_ref{RPN_PATH, _node_path};
                     _value_stack.push(_node_ref);
                     break;
+                }
+            case RPN_INDEX:
+                {
+                    if ( _value_stack.size() < 1 ) {
+                        err_msg_ = "invalidate index";
+                        return CRUN_STATE::ASSERT;
+                    }
+                    if ( _value_stack.top().type != )
                 }
             default : 
                 break;
