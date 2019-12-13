@@ -25,3 +25,7 @@ $.array[($.minusCase + 1) * 1] = "item 3"
 
 
 $.hello = "world"
+$.hi = "world"
+$.result = $.hello == $.hi
+$.boolean = false
+$.assert = $.result == $.boolean

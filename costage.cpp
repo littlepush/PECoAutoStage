@@ -282,11 +282,10 @@ namespace coas {
                 if ( _c_p != '.' && (c == 't' || c == 'f') ) {
                     char _s[10];
                     int _r = sscanf(code_.c_str() + i, "%s", _s);
-                    if ( _r != 4 && _r != 5 ) {
+                    if ( _r != 1 ) {
                         err_ = "Invalidate word at index: " + std::to_string(i);
                         return I_SYNTAX;
                     }
-                    _s[_r] = 0;
                     std::string _bs(_s);
                     if ( _bs == "true" ) {
                         rpn::item_t _b{rpn::IT_BOOL, Json::Value(true)};
