@@ -38,6 +38,7 @@ SOFTWARE.
 using namespace pe;
 
 #include "rpn.h"
+#include "modules.h"
 
 namespace coas {
 
@@ -67,9 +68,9 @@ namespace coas {
     public: 
         // Types
         typedef std::shared_ptr< rpn::stack_type >              ptr_stack_type;
-        typedef std::shared_ptr< rpn::runtime_stack_type >      ptr_runtime_type;
+        typedef std::list< ptr_stack_type >                     stack_group_type;
+        typedef std::shared_ptr< stack_group_type >             ptr_group_type;
         typedef std::shared_ptr< rpn::parser_stack_type >       ptr_parser_type;
-        typedef rpn::stack_type *                               pstack_t;
     protected: 
 
         // Environments
@@ -77,38 +78,51 @@ namespace coas {
         Json::Value                         root_;
         // The error message
         std::string                         err_;
-        // The final result of the stage
+        // The last result of a code group
         rpn::item_t                         result_;
+        // Void Item
+        Json::Value                         void_;
+        // Return Item
+        Json::Value                         return_;
 
-        // Code Cache for unfinished line
-        std::string                         code_;
+        // This Keyword
+        rpn::stack_type                     this_stack_;
+        // Last Keyword
+        rpn::stack_type                     last_stack_;
+
+        // The main entry group name
+        std::string                         entry_group_;
 
         // Code Map, contains all sub stacks
-        std::map< std::string, ptr_stack_type >         code_map_;
-        // Parser Queue
-        std::stack< ptr_parser_type >                   parser_queue_;
-        // Runtime Queue
-        std::stack< ptr_runtime_type >                  runtime_queue_;
+        std::map< std::string, ptr_group_type >         code_map_;
+        // Group Stack
+        std::stack< std::string >                       group_stack_;
+        // Parser Stack
+        std::stack< ptr_parser_type >                   parser_stack_;
 
-        // Current Stack
-        ptr_runtime_type                    exec_;
+        // Current Code Group
+        std::string                         current_group_;
+        ptr_group_type                      group_;
+        // Current Code Stack
+        ptr_stack_type                      exec_;
+        // Current Parser
         ptr_parser_type                     parser_;
 
     protected: 
         // Internal navigation
 
+        // Create a new code group
+        std::string group_create_();
+
+        // Leave current group and pop to the last level
+        void group_leave_();
+
         // Create a new sub stack and return the name
         // Will create both parser item and code part
-        std::string stack_create_();
+        void stack_create_();
 
-        // Jump to a stack
-        // Switch current runtime envorinment
-        void stack_jump_(const std::string& name);
-
-        // Exit a stack
-        // Return from a current stack and switch to last stack
-        // the return value of current stack will be push to last stack's data
-        void stack_return_( );
+        // We finish to parse a code line and release the parser
+        void stack_finish_();
 
         // Get a node by path
         // If the path is not in module list, then create a new nullObject
@@ -119,22 +133,46 @@ namespace coas {
         // Parse the operator item
         bool operator_parser_( size_t index, rpn::item_t& op );
 
+        // Run a line of code
+        E_STATE code_line_run_( ptr_stack_type code );
+
+        // Run Code Group
+        E_STATE code_group_run_( const std::string& group_name );
     public: 
 
         // Result Reference
         const rpn::item_t&          result;
 
+        // Return Value
+        const Json::Value&          returnValue;
+
         // Create an empty stage, default C'str
         costage();
+        ~costage();
 
         // Get the error message
         const std::string& err_string() const;
 
         // Parse a code line
-        I_STATE code_parser( std::string&& code );
+        I_STATE code_parser( const std::string& code );
         
         // Exec the last parsed RPN object
         E_STATE code_run();
+
+        // Clear stack info and start a new environment
+        void code_clear();
+
+        // Public Methods
+
+        // Search for a node
+        Json::Value* get_node( const Json::Value& path_value );
+        // This/Last Setting
+        bool push_this( rpn::item_t&& this_path );
+        void pop_this();
+        bool push_last( rpn::item_t&& last_path );
+        void pop_last();
+        // Invoke a sub code group
+        E_STATE invoke_group( const std::string& group_name );
     };
 
 }

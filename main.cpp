@@ -98,6 +98,7 @@ void co_main( int argc, char* argv[] ) {
                 // }
                 break;
             }
+            _stage.code_clear();
             // Run OK, then continue to get next code
             ++_lno;
             std::cout << "coas(" << _lno << "): ";

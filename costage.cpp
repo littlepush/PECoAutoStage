@@ -37,68 +37,101 @@ using namespace pe::co;
 namespace coas {
     // Class: Stage 
     // a stage will process a costage file and read each line and execute it.
+
+    // Create a new code group
+    std::string costage::group_create_() {
+        ptr_group_type _ngroup = std::make_shared< stack_group_type >();
+        std::string _group_name = utils::ptr_str(_ngroup.get());
+        code_map_[_group_name] = _ngroup;
+        group_stack_.push(_group_name);
+
+        // Current Group Switch to the new group
+        group_ = _ngroup;
+        current_group_ = _group_name;
+        return _group_name;
+    }
+
+    // Leave current group and pop to the last level
+    void costage::group_leave_() {
+        if ( group_stack_.size() > 0 ) {
+            group_stack_.pop();
+        }
+        if ( group_stack_.size() > 0 ) {
+            current_group_ = group_stack_.top();
+            group_ = code_map_[current_group_];
+        } else {
+            group_ = nullptr;
+        }
+        if ( group_ != nullptr ) {
+            parser_stack_.pop();
+            parser_ = parser_stack_.top();
+            exec_ = *group_->rbegin();            
+        }
+    }
+
     // Create a new sub stack and return the name
     // Will create both parser item and code part
-    std::string costage::stack_create_() {
-        ptr_stack_type _pstack = std::make_shared< rpn::stack_type >();
-        std::string _stack_name = utils::ptr_str(_pstack.get());
-        code_map_[_stack_name] = _pstack;
+    void costage::stack_create_() {
+        if ( group_ == nullptr ) {
+            entry_group_ = group_create_();
+        }
+
+        exec_ = std::make_shared< rpn::stack_type >();
+        group_->push_back(exec_);
 
         // Create parser part
         ptr_parser_type _pparser = std::make_shared< rpn::parser_stack_type >();
-        _pparser->name = _stack_name;
 
         // Switch current parser
-        parser_queue_.push(_pparser);
+        parser_stack_.push(_pparser);
         parser_ = _pparser;
-
-        // Return the name
-        return _stack_name;
     }
 
-    // Jump to a stack
-    // Switch current runtime envorinment
-    void costage::stack_jump_(const std::string& name) {
-        ptr_runtime_type _pruntime = std::make_shared< rpn::runtime_stack_type >();
-        _pruntime->name = name;
-        // Copy the code
-        _pruntime->exec = *(code_map_[name]);
-        // Push Current runtime
-        runtime_queue_.push(_pruntime);
-        // Switch
-        exec_ = _pruntime;
+    // We finish to parse a code line and release the parser
+    void costage::stack_finish_() {
+        parser_stack_.pop();
+        parser_ = nullptr;
+        exec_ = nullptr;
     }
 
-    // Exit a stack
-    // Return from a current stack and switch to last stack
-    void costage::stack_return_( ) {
-        rpn::item_t _ret{rpn::IT_ERROR, Json::Value(Json::nullValue)};
-        if ( exec_->data.size() == 0 ) {
-            // No data in stack, return void
-            _ret.type = rpn::IT_VOID;
-        } else if ( exec_->data.size() == 1 ) {
-            // We have one value for return
-            _ret = exec_->data.top();
-        } else {
-            // Error, more than one value
-            _ret.value = "more than one value for return";
-        }
-
-        // Pop Current stack, release it
-        runtime_queue_.pop();
-        // Current runtime should be the last stack
-        if ( runtime_queue_.size() == 0 ) {
-            exec_ = nullptr;
-            result_ = _ret;
-        } else {
-            exec_ = runtime_queue_.top();
-            exec_->data.push(_ret);
-        }
-    }
     // Get a node by path
     Json::Value* costage::node_by_path_(const Json::Value& path_value) {
         Json::Value* _p = &root_;
         size_t _i = 0;
+
+        if ( path_value[0].isString() ) {
+            std::string _keyword = path_value[0].asString();
+            if ( _keyword == "this" ) {
+                if ( this_stack_.size() == 0 ) {
+                    err_ = "`this` = 0x0"; return NULL;
+                }
+                if ( this_stack_.top().type != rpn::IT_PATH ) {
+                    err_ = "`this` is not validate path"; return NULL;
+                }
+                return node_by_path_(this_stack_.top().value);
+            } else if ( _keyword == "last" ) {
+                if ( last_stack_.size() == 0 ) {
+                    err_ = "`last` = 0x0"; return NULL;
+                }
+                if ( last_stack_.top().type != rpn::IT_PATH ) {
+                    err_ = "`last` is not a validate path"; return NULL;
+                }
+                return node_by_path_(last_stack_.top().value);
+            } else if ( _keyword == "void" ) {
+                if ( path_value.size() != 1 ) {
+                    err_ = "`void` has no subpath"; return NULL;
+                }
+                return &void_;
+            } else if ( _keyword == "return" ) {
+                return &return_;
+            }
+            /*
+                else if ( match_any_module_(_keyword) ) {
+                    // create a module and set to temp stack?
+                }
+            */
+        }
+
         std::string _last_node = "$";
         for ( auto i = path_value.begin(); i != path_value.end(); ++i, ++_i ) {
             if ( i->isInt() ) {
@@ -218,8 +251,15 @@ namespace coas {
         return true;
     }
     // Create an empty stage, default C'str
-    costage::costage() : exec_(nullptr), parser_(nullptr), result(result_) {
+    costage::costage() : 
+    void_(Json::nullValue), return_(Json::nullValue),
+    group_(nullptr), exec_(nullptr), parser_(nullptr), 
+    result(result_), returnValue(return_) {
         result_.type = rpn::IT_VOID;
+    }
+
+    costage::~costage() {
+        code_clear();
     }
 
     // Get the error message
@@ -228,27 +268,28 @@ namespace coas {
     }
 
     // Parse a code line
-    I_STATE costage::code_parser( std::string&& code ) {
+    I_STATE costage::code_parser( const std::string& code ) {
 
-        #define __GET_C_N   (i == code_.size() - 1) ? '\0' : code_[i + 1]
-        #define __GET_C     code_[i];
-        #define __GET_C_P   (i == 0) ? '\0' : code_[i - 1]
+        std::string _code = code;
+        #define __GET_C_N   (i == _code.size() - 1) ? '\0' : _code[i + 1]
+        #define __GET_C     _code[i];
+        #define __GET_C_P   (i == 0) ? '\0' : _code[i - 1]
 
-        code_ = code;   // Do Coyp
-        utils::trim(code_);
-        utils::code_filter_comment(code_);
-        if ( code_.size() == 0 ) return I_UNFINISHED;
+        utils::trim(_code);
+        utils::code_filter_comment(_code);
+        if ( _code.size() == 0 ) return I_UNFINISHED;
 
         stack_create_();
 
         std::map< int, bool >   _nodelv;
         int                     _plv = 0;
         char                    _c_p = '\0';
-        for ( size_t i = 0; i < code_.size(); ++i ) {
+        for ( size_t i = 0; i < _code.size(); ++i ) {
             char c = __GET_C;
             char c_n = __GET_C_N;
 
             if ( std::isspace(c) ) continue;    // ignore unused space
+            if ( c == ',' ) continue;
 
             // Check if last checked char is an op one.
             bool _is_p_op = (
@@ -281,7 +322,7 @@ namespace coas {
                 // Test if is true of false
                 if ( _c_p != '.' && (c == 't' || c == 'f') ) {
                     char _s[10];
-                    int _r = sscanf(code_.c_str() + i, "%s", _s);
+                    int _r = sscanf(_code.c_str() + i, "%s", _s);
                     if ( _r != 1 ) {
                         err_ = "Invalidate word at index: " + std::to_string(i);
                         return I_SYNTAX;
@@ -303,8 +344,8 @@ namespace coas {
 
                 // Try to test if this is a number
                 char *_pend = NULL;
-                double _n = std::strtod(code_.c_str() + i, &_pend);
-                if ( _pend != (code_.c_str() + i) ) {
+                double _n = std::strtod(_code.c_str() + i, &_pend);
+                if ( _pend != (_code.c_str() + i) ) {
                     if ( _n == HUGE_VAL || errno == ERANGE ) {
                         // Failed to get the number
                         err_ = "Invalidate number at index: " + std::to_string(i);
@@ -314,7 +355,7 @@ namespace coas {
                     // This is a number
                     rpn::item_t _i{rpn::IT_NUMBER, Json::Value(_n)};
                     parser_->item.push(_i);
-                    size_t _l = _pend - (code_.c_str() + i);
+                    size_t _l = _pend - (_code.c_str() + i);
                     i += (_l - 1);
                     break;
                 }
@@ -433,18 +474,18 @@ namespace coas {
                         err_ = "invalidate '{', following code must begin in a new line";
                         return I_SYNTAX;
                     }
+                    // Create a new code group and wait for code lines
+                    group_create_();
                     return I_UNFINISHED;
                 }
                 // Until we meet matched '}', all status should be I_UNFINISHED
                 if ( c == '}' ) {
-                    if ( parser_queue_.size() == 1 ) {
+                    if ( parser_stack_.size() == 1 ) {
                         err_ = "invalidate '}', missing '{'";
                         return I_SYNTAX;
                     }
-                    std::string _substack_name = parser_->name;
-                    parser_queue_.pop();
-                    parser_ = parser_queue_.top();
-                    rpn::item_t _s{rpn::IT_STACK, Json::Value(_substack_name)};
+                    rpn::item_t _s{rpn::IT_STACK, Json::Value(current_group_)};
+                    group_leave_();
                     parser_->item.push(_s);
                     break;
                 }
@@ -481,7 +522,7 @@ namespace coas {
             } while ( false );
 
             // Update Previous Char
-            _c_p = code_[i];
+            _c_p = _code[i];
         }
 
         while ( parser_->op.size() != 0 ) {
@@ -495,28 +536,28 @@ namespace coas {
         }
 
         // Get current code block
-        ptr_stack_type _code = code_map_[parser_->name];
         while ( parser_->item.size() != 0 ) {
-            _code->push(parser_->item.top());
+            exec_->push(parser_->item.top());
             parser_->item.pop();
         }
 
-        parser_queue_.pop();
-        if ( parser_queue_.size() != 0 ) {
-            parser_ = parser_queue_.top();
-        }
-        return (parser_queue_.size() == 0) ? I_OK : I_UNFINISHED;
+        stack_finish_();
+        return (parser_stack_.size() == 0) ? I_OK : I_UNFINISHED;
     }
-    // Exec the last parsed RPN object
-    E_STATE costage::code_run() {
-        // Jump to Entry point
-        stack_jump_(parser_->name);
 
+    // Run a line of code
+    E_STATE costage::code_line_run_( ptr_stack_type code ) {
+        // Copy the code
+        rpn::stack_type _runtime(*code);
+        // New data stack
+        rpn::stack_type _data;
+
+        // Node Path stack
         std::stack< Json::Value >   _node_stack;
 
-        while ( exec_->exec.size() != 0 ) {
-            rpn::item_t _rpn = exec_->exec.top();
-            exec_->exec.pop();
+        while ( _runtime.size() != 0 ) {
+            rpn::item_t _rpn = _runtime.top();
+            _runtime.pop();
 
             switch (_rpn.type) {
                 case rpn::IT_NUMBER:
@@ -524,14 +565,14 @@ namespace coas {
                 case rpn::IT_BOOL:
                 case rpn::IT_STACK:
                 case rpn::IT_BOA:
-                    exec_->data.push(_rpn); break;
+                    _data.push(_rpn); break;
                 case rpn::IT_PLUS: 
                 {
-                    if ( exec_->data.size() < 2 ) {
+                    if ( _data.size() < 2 ) {
                         err_ = "syntax error near '+'"; return E_ASSERT;
                     }
-                    auto _v1 = exec_->data.top(); exec_->data.pop();
-                    auto _v2 = exec_->data.top(); exec_->data.pop();
+                    auto _v1 = _data.top(); _data.pop();
+                    auto _v2 = _data.top(); _data.pop();
                     Json::Value *_pv1 = (_v1.type != rpn::IT_PATH) ? &_v1.value : node_by_path_(_v1.value);
                     if ( _pv1 == NULL ) return E_ASSERT;
                     Json::Value *_pv2 = (_v2.type != rpn::IT_PATH) ? &_v2.value : node_by_path_(_v2.value);
@@ -541,17 +582,17 @@ namespace coas {
                     // Any string object beside '+', consider as string concat string
                     if ( _v2.type == rpn::IT_STRING || (_v2.type == rpn::IT_PATH && _jv2.isString() ) ) {
                         rpn::item_t _r{rpn::IT_STRING, _jv2.asString() + _jv1.asString()};
-                        exec_->data.push(_r);
+                        _data.push(_r);
                     } else if ( _v1.type == rpn::IT_STRING || (_v1.type == rpn::IT_PATH && _jv1.isString()) ) {
                         rpn::item_t _r{rpn::IT_STRING, _jv2.asString() + _jv1.asString()};
-                        exec_->data.push(_r);
+                        _data.push(_r);
                     } else if ( 
                         // Both is number, do normal add
                         (_v1.type == rpn::IT_NUMBER || (_v1.type == rpn::IT_PATH && _jv1.isNumeric())) &&
                         (_v2.type == rpn::IT_NUMBER || (_v2.type == rpn::IT_PATH && _jv2.isNumeric()))
                     ) {
                         rpn::item_t _r{rpn::IT_NUMBER, _jv2.asDouble() + _jv1.asDouble()};
-                        exec_->data.push(_r);
+                        _data.push(_r);
                     } else {
                         err_ = "invalidate type around '+'";
                         return E_ASSERT;
@@ -560,11 +601,11 @@ namespace coas {
                 }
                 case rpn::IT_MINUS:
                 {
-                    if ( exec_->data.size() < 2 ) {
+                    if ( _data.size() < 2 ) {
                         err_ = "syntax error near '-'"; return E_ASSERT;
                     }
-                    auto _v1 = exec_->data.top(); exec_->data.pop();
-                    auto _v2 = exec_->data.top(); exec_->data.pop();
+                    auto _v1 = _data.top(); _data.pop();
+                    auto _v2 = _data.top(); _data.pop();
                     Json::Value *_pv1 = (_v1.type != rpn::IT_PATH) ? &_v1.value : node_by_path_(_v1.value);
                     if ( _pv1 == NULL ) return E_ASSERT;
                     Json::Value *_pv2 = (_v2.type != rpn::IT_PATH) ? &_v2.value : node_by_path_(_v2.value);
@@ -576,7 +617,7 @@ namespace coas {
                         (_v2.type == rpn::IT_NUMBER || (_v2.type == rpn::IT_PATH && _jv2.isNumeric()))
                     ) {
                         rpn::item_t _r{rpn::IT_NUMBER, _jv2.asDouble() - _jv1.asDouble()};
-                        exec_->data.push(_r);
+                        _data.push(_r);
                     } else {
                         err_ = "invalidate type around '-'";
                         return E_ASSERT;
@@ -585,11 +626,11 @@ namespace coas {
                 }
                 case rpn::IT_TIMES:
                 {
-                    if ( exec_->data.size() < 2 ) {
+                    if ( _data.size() < 2 ) {
                         err_ = "syntax error near '*'"; return E_ASSERT;
                     }
-                    auto _v1 = exec_->data.top(); exec_->data.pop();
-                    auto _v2 = exec_->data.top(); exec_->data.pop();
+                    auto _v1 = _data.top(); _data.pop();
+                    auto _v2 = _data.top(); _data.pop();
                     Json::Value *_pv1 = (_v1.type != rpn::IT_PATH) ? &_v1.value : node_by_path_(_v1.value);
                     if ( _pv1 == NULL ) return E_ASSERT;
                     Json::Value *_pv2 = (_v2.type != rpn::IT_PATH) ? &_v2.value : node_by_path_(_v2.value);
@@ -601,7 +642,7 @@ namespace coas {
                         (_v2.type == rpn::IT_NUMBER || (_v2.type == rpn::IT_PATH && _jv2.isNumeric()))
                     ) {
                         rpn::item_t _r{rpn::IT_NUMBER, _jv2.asDouble() * _jv1.asDouble()};
-                        exec_->data.push(_r);
+                        _data.push(_r);
                     } else {
                         err_ = "invalidate type around '*'";
                         return E_ASSERT;
@@ -610,11 +651,11 @@ namespace coas {
                 }
                 case rpn::IT_DIVID:
                 {
-                    if ( exec_->data.size() < 2 ) {
+                    if ( _data.size() < 2 ) {
                         err_ = "syntax error near '/'"; return E_ASSERT;
                     }
-                    auto _v1 = exec_->data.top(); exec_->data.pop();
-                    auto _v2 = exec_->data.top(); exec_->data.pop();
+                    auto _v1 = _data.top(); _data.pop();
+                    auto _v2 = _data.top(); _data.pop();
                     Json::Value *_pv1 = (_v1.type != rpn::IT_PATH) ? &_v1.value : node_by_path_(_v1.value);
                     if ( _pv1 == NULL ) return E_ASSERT;
                     Json::Value *_pv2 = (_v2.type != rpn::IT_PATH) ? &_v2.value : node_by_path_(_v2.value);
@@ -630,7 +671,7 @@ namespace coas {
                             return E_ASSERT;
                         }
                         rpn::item_t _r{rpn::IT_NUMBER, _jv2.asDouble() / _jv1.asDouble()};
-                        exec_->data.push(_r);
+                        _data.push(_r);
                     } else {
                         err_ = "invalidate type around '/'";
                         return E_ASSERT;
@@ -639,11 +680,11 @@ namespace coas {
                 }
                 case rpn::IT_EQUAL:
                 {
-                    if ( exec_->data.size() < 2 ) {
+                    if ( _data.size() < 2 ) {
                         err_ = "syntax error near '/'"; return E_ASSERT;
                     }
-                    auto _v1 = exec_->data.top(); exec_->data.pop();
-                    auto _v2 = exec_->data.top(); exec_->data.pop();
+                    auto _v1 = _data.top(); _data.pop();
+                    auto _v2 = _data.top(); _data.pop();
                     Json::Value *_pv1 = (_v1.type != rpn::IT_PATH) ? &_v1.value : node_by_path_(_v1.value);
                     if ( _pv1 == NULL ) return E_ASSERT;
                     Json::Value *_pv2 = (_v2.type != rpn::IT_PATH) ? &_v2.value : node_by_path_(_v2.value);
@@ -652,16 +693,16 @@ namespace coas {
                     Json::Value &_jv2 = *_pv2;
 
                     rpn::item_t _b{rpn::IT_BOOL, Json::Value(_jv2 == _jv1)};
-                    exec_->data.push(_b);
+                    _data.push(_b);
                     break;
                 }
                 case rpn::IT_LESS_THAN:
                 {
-                    if ( exec_->data.size() < 2 ) {
+                    if ( _data.size() < 2 ) {
                         err_ = "syntax error near '<'"; return E_ASSERT;
                     }
-                    auto _v1 = exec_->data.top(); exec_->data.pop();
-                    auto _v2 = exec_->data.top(); exec_->data.pop();
+                    auto _v1 = _data.top(); _data.pop();
+                    auto _v2 = _data.top(); _data.pop();
                     Json::Value *_pv1 = (_v1.type != rpn::IT_PATH) ? &_v1.value : node_by_path_(_v1.value);
                     if ( _pv1 == NULL ) return E_ASSERT;
                     Json::Value *_pv2 = (_v2.type != rpn::IT_PATH) ? &_v2.value : node_by_path_(_v2.value);
@@ -673,7 +714,7 @@ namespace coas {
                         (_v2.type == rpn::IT_NUMBER || (_v2.type == rpn::IT_PATH && _jv2.isNumeric()))
                     ) {
                         rpn::item_t _r{rpn::IT_BOOL, _jv2.asDouble() < _jv1.asDouble()};
-                        exec_->data.push(_r);
+                        _data.push(_r);
                     } else {
                         err_ = "invalidate type around '<'";
                         return E_ASSERT;
@@ -682,11 +723,11 @@ namespace coas {
                 }
                 case rpn::IT_LESS_EQUAL:
                 {
-                    if ( exec_->data.size() < 2 ) {
+                    if ( _data.size() < 2 ) {
                         err_ = "syntax error near '<='"; return E_ASSERT;
                     }
-                    auto _v1 = exec_->data.top(); exec_->data.pop();
-                    auto _v2 = exec_->data.top(); exec_->data.pop();
+                    auto _v1 = _data.top(); _data.pop();
+                    auto _v2 = _data.top(); _data.pop();
                     Json::Value *_pv1 = (_v1.type != rpn::IT_PATH) ? &_v1.value : node_by_path_(_v1.value);
                     if ( _pv1 == NULL ) return E_ASSERT;
                     Json::Value *_pv2 = (_v2.type != rpn::IT_PATH) ? &_v2.value : node_by_path_(_v2.value);
@@ -698,7 +739,7 @@ namespace coas {
                         (_v2.type == rpn::IT_NUMBER || (_v2.type == rpn::IT_PATH && _jv2.isNumeric()))
                     ) {
                         rpn::item_t _r{rpn::IT_BOOL, _jv2.asDouble() <= _jv1.asDouble()};
-                        exec_->data.push(_r);
+                        _data.push(_r);
                     } else {
                         err_ = "invalidate type around '<='";
                         return E_ASSERT;
@@ -708,11 +749,11 @@ namespace coas {
                 }
                 case rpn::IT_GREAT_THAN:
                 {
-                    if ( exec_->data.size() < 2 ) {
+                    if ( _data.size() < 2 ) {
                         err_ = "syntax error near '>'"; return E_ASSERT;
                     }
-                    auto _v1 = exec_->data.top(); exec_->data.pop();
-                    auto _v2 = exec_->data.top(); exec_->data.pop();
+                    auto _v1 = _data.top(); _data.pop();
+                    auto _v2 = _data.top(); _data.pop();
                     Json::Value *_pv1 = (_v1.type != rpn::IT_PATH) ? &_v1.value : node_by_path_(_v1.value);
                     if ( _pv1 == NULL ) return E_ASSERT;
                     Json::Value *_pv2 = (_v2.type != rpn::IT_PATH) ? &_v2.value : node_by_path_(_v2.value);
@@ -724,7 +765,7 @@ namespace coas {
                         (_v2.type == rpn::IT_NUMBER || (_v2.type == rpn::IT_PATH && _jv2.isNumeric()))
                     ) {
                         rpn::item_t _r{rpn::IT_BOOL, _jv2.asDouble() > _jv1.asDouble()};
-                        exec_->data.push(_r);
+                        _data.push(_r);
                     } else {
                         err_ = "invalidate type around '>'";
                         return E_ASSERT;
@@ -733,11 +774,11 @@ namespace coas {
                 }
                 case rpn::IT_GREAT_EQUAL:
                 {
-                    if ( exec_->data.size() < 2 ) {
+                    if ( _data.size() < 2 ) {
                         err_ = "syntax error near '>='"; return E_ASSERT;
                     }
-                    auto _v1 = exec_->data.top(); exec_->data.pop();
-                    auto _v2 = exec_->data.top(); exec_->data.pop();
+                    auto _v1 = _data.top(); _data.pop();
+                    auto _v2 = _data.top(); _data.pop();
                     Json::Value *_pv1 = (_v1.type != rpn::IT_PATH) ? &_v1.value : node_by_path_(_v1.value);
                     if ( _pv1 == NULL ) return E_ASSERT;
                     Json::Value *_pv2 = (_v2.type != rpn::IT_PATH) ? &_v2.value : node_by_path_(_v2.value);
@@ -749,7 +790,7 @@ namespace coas {
                         (_v2.type == rpn::IT_NUMBER || (_v2.type == rpn::IT_PATH && _jv2.isNumeric()))
                     ) {
                         rpn::item_t _r{rpn::IT_BOOL, _jv2.asDouble() >= _jv1.asDouble()};
-                        exec_->data.push(_r);
+                        _data.push(_r);
                     } else {
                         err_ = "invalidate type around '>='";
                         return E_ASSERT;
@@ -758,11 +799,11 @@ namespace coas {
                 }
                 case rpn::IT_SET:
                 {
-                    if ( exec_->data.size() < 2 ) {
+                    if ( _data.size() < 2 ) {
                         err_ = "syntax error near '='"; return E_ASSERT;
                     }
-                    auto _v1 = exec_->data.top(); exec_->data.pop();
-                    auto _v2 = exec_->data.top(); exec_->data.pop();
+                    auto _v1 = _data.top(); _data.pop();
+                    auto _v2 = _data.top(); _data.pop();
                     if ( _v2.type != rpn::IT_PATH ) {
                         err_ = "left side must be a path";
                         return E_ASSERT;
@@ -780,27 +821,27 @@ namespace coas {
                 }
                 case rpn::IT_NODE:
                 {
-                    if ( exec_->data.size() < 1 ) {
+                    if ( _data.size() < 1 ) {
                         err_ = "invalidate path begin with '.'";
                         return E_ASSERT;
                     }
-                    if ( exec_->data.top().type == rpn::IT_PATH ) {
-                        auto _pitem = exec_->data.top();
-                        exec_->data.pop();
+                    if ( _data.top().type == rpn::IT_PATH ) {
+                        auto _pitem = _data.top();
+                        _data.pop();
                         Json::Value* _pv = node_by_path_(_pitem.value);
                         if ( _pv == NULL ) return E_ASSERT; // Path not found
                         rpn::item_t _n{rpn::IT_STRING, *_pv};
                         if ( _pv->isNumeric() ) _n.type = rpn::IT_NUMBER;
-                        exec_->data.push(_n);
+                        _data.push(_n);
                     }
-                    if ( exec_->data.top().type != rpn::IT_STRING && 
-                        exec_->data.top().type != rpn::IT_NUMBER ) {
+                    if ( _data.top().type != rpn::IT_STRING && 
+                        _data.top().type != rpn::IT_NUMBER ) {
                         err_ = "invalidate path";
                         return E_ASSERT;
                     }
 
-                    Json::Value _node = exec_->data.top().value;
-                    exec_->data.pop();
+                    Json::Value _node = _data.top().value;
+                    _data.pop();
 
                     // Path unfinished
                     if ( _node.asString() != "$" ) {
@@ -815,52 +856,133 @@ namespace coas {
                         _node_path.append(_node);
                     }
                     rpn::item_t _node_ref{rpn::IT_PATH, _node_path};
-                    exec_->data.push(_node_ref);
+                    _data.push(_node_ref);
                     break;
                 }
                 case rpn::IT_EXEC: 
                 {
-                    if ( exec_->data.size() == 0 ) {
+                    if ( _data.size() == 0 ) {
                         err_ = "missing run path for function";
                         return E_ASSERT;
                     }
                     std::list< rpn::item_t > _args;
-                    while ( exec_->data.size() > 1 && exec_->data.top().type != rpn::IT_BOA ) {
-                        _args.push_front(exec_->data.top());
-                        exec_->data.pop();
+                    while ( _data.size() > 1 && _data.top().type != rpn::IT_BOA ) {
+                        _args.push_front(_data.top());
+                        _data.pop();
                     }
-                    if ( exec_->data.size() <= 1 ) {
+                    if ( _data.size() <= 1 ) {
                         err_ = "logic error, too many arguments";
                         return E_ASSERT;
                     }
                     // Pop BOA
-                    exec_->data.pop();
+                    _data.pop();
                     // Next should be the node who invoke the function
-                    if ( exec_->data.top().type != rpn::IT_PATH ) {
+                    if ( _data.top().type != rpn::IT_PATH ) {
                         err_ = "logic error, missing `this`";
                         return E_ASSERT;
                     }
-                    _args.push_front(exec_->data.top());
-                    exec_->data.pop();
+
+                    // _args.push_front(_data.top());
+                    this_stack_.push(_data.top());
+                    _data.pop();
 
                     // Tell to run
-                    ON_DEBUG(
-                        std::cout << "run " << _rpn.value.asString() << 
-                            " with " << _args.size() << " arguments" << std::endl;
-                        rpn::item_t _r{rpn::IT_NUMBER, Json::Value(1)};
-                        exec_->data.push(_r);
-                    )
-                    // To do: Invoke the function
+                    // The following code should be changed with moduleManager
+                    if ( _rpn.value.asString() == "max" ) {
+                        auto _ret = __func_max(*this, this_stack_.top(), _args);
+                        if ( _ret.type == rpn::IT_ERROR ) {
+                            err_ = _ret.value.asString();
+                            return E_ASSERT;
+                        }
+                        _data.push(_ret);
+                    } else {
+                        err_ = "method `" + _rpn.value.asString() + "` not found";
+                        return E_ASSERT;
+                    }
+
+                    this_stack_.pop();
                     break;
                 }
                 default: break;
             };
         }
-        stack_return_();
         ON_DEBUG(
             std::cout << root_ << std::endl;
         )
+        if ( _data.size() != 0 ) {
+            err_ = "unfinished code running";
+            return E_ASSERT;
+        }
         return E_OK;
+    }
+    // Run Code Group
+    E_STATE costage::code_group_run_( const std::string& group_name ) {
+        if ( code_map_.find(group_name) == code_map_.end() ) {
+            err_ = "`" + group_name + "` BAD_ACCESS";
+            return E_ASSERT;
+        }
+        ptr_group_type _pgroup = code_map_[group_name];
+
+        for ( auto& _c : (*_pgroup) ) {
+            if ( !return_.isNull() ) {
+                return_ = Json::Value(Json::nullValue);
+            }
+            auto _r = code_line_run_(_c);
+            if ( _r == E_OK ) continue;
+            return _r;
+        }
+
+        return E_OK;
+    }
+
+    // Exec the last parsed RPN object
+    E_STATE costage::code_run() {
+        return code_group_run_(entry_group_);
+    }
+
+    // Clear stack info and start a new environment
+    void costage::code_clear() {
+        while ( this_stack_.size() > 0 ) { this_stack_.pop(); }
+        while ( last_stack_.size() > 0 ) { last_stack_.pop(); }
+        entry_group_ = "";
+        code_map_.clear();
+        while ( group_stack_.size() > 0 ) { group_stack_.pop(); }
+        while ( parser_stack_.size() > 0 ) { parser_stack_.pop(); }
+        current_group_ = "";
+        group_ = nullptr;
+        exec_ = nullptr;
+        parser_ = nullptr;
+    }
+    // Public Methods
+    
+    // Search for a node
+    Json::Value* costage::get_node( const Json::Value& path_value ) { return node_by_path_(path_value); }
+    // This/Last Setting
+    bool costage::push_this( rpn::item_t&& this_path ) { 
+        if ( this_path.type != rpn::IT_PATH ) {
+            err_ = "push invalidate this path";
+            return false;
+        }
+        this_stack_.push(this_path);
+        return true;
+    }
+    void costage::pop_this() {
+        if ( this_stack_.size() > 0 ) this_stack_.pop();
+    }
+    bool costage::push_last( rpn::item_t&& last_path ) {
+        if ( last_path.type != rpn::IT_PATH ) {
+            err_ = "push invalidate last path";
+            return false;
+        }
+        last_stack_.push(last_path);
+        return true;
+    }
+    void costage::pop_last() {
+        if ( last_stack_.size() > 0 ) last_stack_.pop();
+    }
+    // Invoke a sub code group
+    E_STATE costage::invoke_group( const std::string& group_name ) {
+        return code_group_run_(group_name);
     }
 }
 

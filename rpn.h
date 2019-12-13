@@ -85,20 +85,8 @@ namespace coas { namespace rpn {
     // The Memory Stack
     typedef std::stack< item_t >        stack_type;
 
-    // Runtime Stack
-    typedef struct {
-        // Stack name
-        std::string                     name;
-        // Current Executing Stack
-        stack_type                      exec;
-        // Current Temp Data Stack 
-        stack_type                      data;
-    } runtime_stack_type;
-
     // Stack used in parser
     typedef struct {
-        // Stack name
-        std::string                     name;
         // Operator 
         stack_type                      op;
         // Item
