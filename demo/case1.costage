@@ -1,11 +1,18 @@
+// This is a comment line
+// Auto create sub nodes and set a string value
 $.subpath.pathValue = "v"
+// Set a number value
 $.subpath.indexValue = 1
+// One step plus
 $.plusCase = 1 + 1
+// One step minus
 $.minusCase = 3 - 2
+// One step times
 $.timesCase = 5 * 6
+// One step divid
 $.dividCase = 8 / 2
-$.calc = (2+3)*2
-$.m1 = (2*3-1)
+$.calc = (2+3)*2    // Comment after the line
+$.m1 = (2*3-1)      /* different comment line */
 $.multiple = ((2*3-1)*(60/5) + $.calc) + " seconds"
 $.($.subpath.pathValue + $.subpath.indexValue) = 1
 $.($.subpath.pathValue + ($.subpath.indexValue + 1)) = ((2*3-1)*(60/5) + (12)) + " seconds"
@@ -14,3 +21,7 @@ $.subpath2.indexValue = $.subpath2.indexValue + 1
 $.array[0] = "array1"
 $.array[$.minusCase] = "item 2"
 $.array[($.minusCase + 1) * 1] = "item 3"
+
+
+
+$.hello = "world"

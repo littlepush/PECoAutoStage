@@ -234,10 +234,12 @@ namespace coas {
         #define __GET_C     code_[i];
         #define __GET_C_P   (i == 0) ? '\0' : code_[i - 1]
 
-        stack_create_();
-
         code_ += code;
         utils::trim(code_);
+        utils::code_filter_comment(code_);
+        if ( code_.size() == 0 ) return I_UNFINISHED;
+
+        stack_create_();
 
         std::map< int, bool >   _nodelv;
         int                     _plv = 0;
@@ -274,6 +276,30 @@ namespace coas {
                         if ( !operator_parser_(i, _i) ) return I_SYNTAX;
                         break;
                     }
+                }
+
+                // Test if is true of false
+                if ( _c_p != '.' && (c == 't' || c == 'f') ) {
+                    char _s[10];
+                    int _r = sscanf(code_.c_str() + i, "%s", _s);
+                    if ( _r != 4 && _r != 5 ) {
+                        err_ = "Invalidate word at index: " + std::to_string(i);
+                        return I_SYNTAX;
+                    }
+                    _s[_r] = 0;
+                    std::string _bs(_s);
+                    if ( _bs == "true" ) {
+                        rpn::item_t _b{rpn::IT_BOOL, Json::Value(true)};
+                        parser_->item.push(_b);
+                    } else if ( _bs == "false" ) {
+                        rpn::item_t _b{rpn::IT_BOOL, Json::Value(false)};
+                        parser_->item.push(_b);
+                    } else {
+                        err_ = "invalidate word at index: " + std::to_string(i);
+                        return I_SYNTAX;
+                    }
+                    i += _r;
+                    break;
                 }
 
                 // Try to test if this is a number
@@ -486,6 +512,7 @@ namespace coas {
             switch (_rpn.type) {
                 case rpn::IT_NUMBER:
                 case rpn::IT_STRING:
+                case rpn::IT_BOOL:
                     exec_->data.push(_rpn); break;
                 case rpn::IT_PLUS: 
                 {
@@ -494,8 +521,12 @@ namespace coas {
                     }
                     auto _v1 = exec_->data.top(); exec_->data.pop();
                     auto _v2 = exec_->data.top(); exec_->data.pop();
-                    Json::Value &_jv1 = (_v1.type != rpn::IT_PATH) ? _v1.value : *(node_by_path_(_v1.value));
-                    Json::Value &_jv2 = (_v2.type != rpn::IT_PATH) ? _v2.value : *(node_by_path_(_v2.value));
+                    Json::Value *_pv1 = (_v1.type != rpn::IT_PATH) ? &_v1.value : node_by_path_(_v1.value);
+                    if ( _pv1 == NULL ) return E_ASSERT;
+                    Json::Value *_pv2 = (_v2.type != rpn::IT_PATH) ? &_v2.value : node_by_path_(_v2.value);
+                    if ( _pv2 == NULL ) return E_ASSERT;
+                    Json::Value &_jv1 = *_pv1;
+                    Json::Value &_jv2 = *_pv2;
                     // Any string object beside '+', consider as string concat string
                     if ( _v2.type == rpn::IT_STRING || (_v2.type == rpn::IT_PATH && _jv2.isString() ) ) {
                         rpn::item_t _r{rpn::IT_STRING, _jv2.asString() + _jv1.asString()};
@@ -523,8 +554,12 @@ namespace coas {
                     }
                     auto _v1 = exec_->data.top(); exec_->data.pop();
                     auto _v2 = exec_->data.top(); exec_->data.pop();
-                    Json::Value &_jv1 = (_v1.type != rpn::IT_PATH) ? _v1.value : *(node_by_path_(_v1.value));
-                    Json::Value &_jv2 = (_v2.type != rpn::IT_PATH) ? _v2.value : *(node_by_path_(_v2.value));
+                    Json::Value *_pv1 = (_v1.type != rpn::IT_PATH) ? &_v1.value : node_by_path_(_v1.value);
+                    if ( _pv1 == NULL ) return E_ASSERT;
+                    Json::Value *_pv2 = (_v2.type != rpn::IT_PATH) ? &_v2.value : node_by_path_(_v2.value);
+                    if ( _pv2 == NULL ) return E_ASSERT;
+                    Json::Value &_jv1 = *_pv1;
+                    Json::Value &_jv2 = *_pv2;
                     if ( 
                         (_v1.type == rpn::IT_NUMBER || (_v1.type == rpn::IT_PATH && _jv1.isNumeric())) &&
                         (_v2.type == rpn::IT_NUMBER || (_v2.type == rpn::IT_PATH && _jv2.isNumeric()))
@@ -544,8 +579,12 @@ namespace coas {
                     }
                     auto _v1 = exec_->data.top(); exec_->data.pop();
                     auto _v2 = exec_->data.top(); exec_->data.pop();
-                    Json::Value &_jv1 = (_v1.type != rpn::IT_PATH) ? _v1.value : *(node_by_path_(_v1.value));
-                    Json::Value &_jv2 = (_v2.type != rpn::IT_PATH) ? _v2.value : *(node_by_path_(_v2.value));
+                    Json::Value *_pv1 = (_v1.type != rpn::IT_PATH) ? &_v1.value : node_by_path_(_v1.value);
+                    if ( _pv1 == NULL ) return E_ASSERT;
+                    Json::Value *_pv2 = (_v2.type != rpn::IT_PATH) ? &_v2.value : node_by_path_(_v2.value);
+                    if ( _pv2 == NULL ) return E_ASSERT;
+                    Json::Value &_jv1 = *_pv1;
+                    Json::Value &_jv2 = *_pv2;
                     if ( 
                         (_v1.type == rpn::IT_NUMBER || (_v1.type == rpn::IT_PATH && _jv1.isNumeric())) &&
                         (_v2.type == rpn::IT_NUMBER || (_v2.type == rpn::IT_PATH && _jv2.isNumeric()))
@@ -565,16 +604,143 @@ namespace coas {
                     }
                     auto _v1 = exec_->data.top(); exec_->data.pop();
                     auto _v2 = exec_->data.top(); exec_->data.pop();
-                    Json::Value &_jv1 = (_v1.type != rpn::IT_PATH) ? _v1.value : *(node_by_path_(_v1.value));
-                    Json::Value &_jv2 = (_v2.type != rpn::IT_PATH) ? _v2.value : *(node_by_path_(_v2.value));
+                    Json::Value *_pv1 = (_v1.type != rpn::IT_PATH) ? &_v1.value : node_by_path_(_v1.value);
+                    if ( _pv1 == NULL ) return E_ASSERT;
+                    Json::Value *_pv2 = (_v2.type != rpn::IT_PATH) ? &_v2.value : node_by_path_(_v2.value);
+                    if ( _pv2 == NULL ) return E_ASSERT;
+                    Json::Value &_jv1 = *_pv1;
+                    Json::Value &_jv2 = *_pv2;
                     if ( 
                         (_v1.type == rpn::IT_NUMBER || (_v1.type == rpn::IT_PATH && _jv1.isNumeric())) &&
                         (_v2.type == rpn::IT_NUMBER || (_v2.type == rpn::IT_PATH && _jv2.isNumeric()))
                     ) {
+                        if ( _jv1.asDouble() == 0.f ) {
+                            err_ = "zero overflow";
+                            return E_ASSERT;
+                        }
                         rpn::item_t _r{rpn::IT_NUMBER, _jv2.asDouble() / _jv1.asDouble()};
                         exec_->data.push(_r);
                     } else {
                         err_ = "invalidate type around '/'";
+                        return E_ASSERT;
+                    }
+                    break;
+                }
+                case rpn::IT_EQUAL:
+                {
+                    if ( exec_->data.size() < 2 ) {
+                        err_ = "syntax error near '/'"; return E_ASSERT;
+                    }
+                    auto _v1 = exec_->data.top(); exec_->data.pop();
+                    auto _v2 = exec_->data.top(); exec_->data.pop();
+                    Json::Value *_pv1 = (_v1.type != rpn::IT_PATH) ? &_v1.value : node_by_path_(_v1.value);
+                    if ( _pv1 == NULL ) return E_ASSERT;
+                    Json::Value *_pv2 = (_v2.type != rpn::IT_PATH) ? &_v2.value : node_by_path_(_v2.value);
+                    if ( _pv2 == NULL ) return E_ASSERT;
+                    Json::Value &_jv1 = *_pv1;
+                    Json::Value &_jv2 = *_pv2;
+
+                    rpn::item_t _b{rpn::IT_BOOL, Json::Value(_jv2 == _jv1)};
+                    exec_->data.push(_b);
+                    break;
+                }
+                case rpn::IT_LESS_THAN:
+                {
+                    if ( exec_->data.size() < 2 ) {
+                        err_ = "syntax error near '<'"; return E_ASSERT;
+                    }
+                    auto _v1 = exec_->data.top(); exec_->data.pop();
+                    auto _v2 = exec_->data.top(); exec_->data.pop();
+                    Json::Value *_pv1 = (_v1.type != rpn::IT_PATH) ? &_v1.value : node_by_path_(_v1.value);
+                    if ( _pv1 == NULL ) return E_ASSERT;
+                    Json::Value *_pv2 = (_v2.type != rpn::IT_PATH) ? &_v2.value : node_by_path_(_v2.value);
+                    if ( _pv2 == NULL ) return E_ASSERT;
+                    Json::Value &_jv1 = *_pv1;
+                    Json::Value &_jv2 = *_pv2;
+                    if ( 
+                        (_v1.type == rpn::IT_NUMBER || (_v1.type == rpn::IT_PATH && _jv1.isNumeric())) &&
+                        (_v2.type == rpn::IT_NUMBER || (_v2.type == rpn::IT_PATH && _jv2.isNumeric()))
+                    ) {
+                        rpn::item_t _r{rpn::IT_BOOL, _jv2.asDouble() < _jv1.asDouble()};
+                        exec_->data.push(_r);
+                    } else {
+                        err_ = "invalidate type around '<'";
+                        return E_ASSERT;
+                    }
+                    break;
+                }
+                case rpn::IT_LESS_EQUAL:
+                {
+                    if ( exec_->data.size() < 2 ) {
+                        err_ = "syntax error near '<='"; return E_ASSERT;
+                    }
+                    auto _v1 = exec_->data.top(); exec_->data.pop();
+                    auto _v2 = exec_->data.top(); exec_->data.pop();
+                    Json::Value *_pv1 = (_v1.type != rpn::IT_PATH) ? &_v1.value : node_by_path_(_v1.value);
+                    if ( _pv1 == NULL ) return E_ASSERT;
+                    Json::Value *_pv2 = (_v2.type != rpn::IT_PATH) ? &_v2.value : node_by_path_(_v2.value);
+                    if ( _pv2 == NULL ) return E_ASSERT;
+                    Json::Value &_jv1 = *_pv1;
+                    Json::Value &_jv2 = *_pv2;
+                    if ( 
+                        (_v1.type == rpn::IT_NUMBER || (_v1.type == rpn::IT_PATH && _jv1.isNumeric())) &&
+                        (_v2.type == rpn::IT_NUMBER || (_v2.type == rpn::IT_PATH && _jv2.isNumeric()))
+                    ) {
+                        rpn::item_t _r{rpn::IT_BOOL, _jv2.asDouble() <= _jv1.asDouble()};
+                        exec_->data.push(_r);
+                    } else {
+                        err_ = "invalidate type around '<='";
+                        return E_ASSERT;
+                    }
+                    break;
+
+                }
+                case rpn::IT_GREAT_THAN:
+                {
+                    if ( exec_->data.size() < 2 ) {
+                        err_ = "syntax error near '>'"; return E_ASSERT;
+                    }
+                    auto _v1 = exec_->data.top(); exec_->data.pop();
+                    auto _v2 = exec_->data.top(); exec_->data.pop();
+                    Json::Value *_pv1 = (_v1.type != rpn::IT_PATH) ? &_v1.value : node_by_path_(_v1.value);
+                    if ( _pv1 == NULL ) return E_ASSERT;
+                    Json::Value *_pv2 = (_v2.type != rpn::IT_PATH) ? &_v2.value : node_by_path_(_v2.value);
+                    if ( _pv2 == NULL ) return E_ASSERT;
+                    Json::Value &_jv1 = *_pv1;
+                    Json::Value &_jv2 = *_pv2;
+                    if ( 
+                        (_v1.type == rpn::IT_NUMBER || (_v1.type == rpn::IT_PATH && _jv1.isNumeric())) &&
+                        (_v2.type == rpn::IT_NUMBER || (_v2.type == rpn::IT_PATH && _jv2.isNumeric()))
+                    ) {
+                        rpn::item_t _r{rpn::IT_BOOL, _jv2.asDouble() > _jv1.asDouble()};
+                        exec_->data.push(_r);
+                    } else {
+                        err_ = "invalidate type around '>'";
+                        return E_ASSERT;
+                    }
+                    break;
+                }
+                case rpn::IT_GREAT_EQUAL:
+                {
+                    if ( exec_->data.size() < 2 ) {
+                        err_ = "syntax error near '>='"; return E_ASSERT;
+                    }
+                    auto _v1 = exec_->data.top(); exec_->data.pop();
+                    auto _v2 = exec_->data.top(); exec_->data.pop();
+                    Json::Value *_pv1 = (_v1.type != rpn::IT_PATH) ? &_v1.value : node_by_path_(_v1.value);
+                    if ( _pv1 == NULL ) return E_ASSERT;
+                    Json::Value *_pv2 = (_v2.type != rpn::IT_PATH) ? &_v2.value : node_by_path_(_v2.value);
+                    if ( _pv2 == NULL ) return E_ASSERT;
+                    Json::Value &_jv1 = *_pv1;
+                    Json::Value &_jv2 = *_pv2;
+                    if ( 
+                        (_v1.type == rpn::IT_NUMBER || (_v1.type == rpn::IT_PATH && _jv1.isNumeric())) &&
+                        (_v2.type == rpn::IT_NUMBER || (_v2.type == rpn::IT_PATH && _jv2.isNumeric()))
+                    ) {
+                        rpn::item_t _r{rpn::IT_BOOL, _jv2.asDouble() >= _jv1.asDouble()};
+                        exec_->data.push(_r);
+                    } else {
+                        err_ = "invalidate type around '>='";
                         return E_ASSERT;
                     }
                     break;
@@ -590,7 +756,9 @@ namespace coas {
                         err_ = "left side must be a path";
                         return E_ASSERT;
                     }
-                    Json::Value &_jv1 = (_v1.type != rpn::IT_PATH) ? _v1.value : *(node_by_path_(_v1.value));
+                    Json::Value *_pv1 = (_v1.type != rpn::IT_PATH) ? &_v1.value : node_by_path_(_v1.value);
+                    if ( _pv1 == NULL ) return E_ASSERT;
+                    Json::Value &_jv1 = *_pv1;
                     Json::Value* _pv2 = node_by_path_(_v2.value);
                     if ( _pv2 == NULL ) return E_ASSERT;
                     Json::Value &_jv2 = *_pv2;

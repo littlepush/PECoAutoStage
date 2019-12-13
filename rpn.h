@@ -42,6 +42,7 @@ namespace coas { namespace rpn {
     enum item_type {
         IT_NUMBER                   = 0,
         IT_STRING,
+        IT_BOOL,
         IT_PATH,
 
         // Operators
