@@ -31,8 +31,8 @@ SOFTWARE.
 
 #pragma once
 
-#ifndef PECO_AUTO_STAGE_RPN_H__
-#define PECO_AUTO_STAGE_RPN_H__
+#ifndef PECO_AUTO_STAGE_COSTAGE_H__
+#define PECO_AUTO_STAGE_COSTAGE_H__
 
 #include <peutils.h>
 using namespace pe;
@@ -86,9 +86,9 @@ namespace coas {
         // Code Map, contains all sub stacks
         std::map< std::string, ptr_stack_type >         code_map_;
         // Parser Queue
-        std::queue< ptr_parser_type >                   parser_queue_;
+        std::stack< ptr_parser_type >                   parser_queue_;
         // Runtime Queue
-        std::queue< ptr_runtime_type >                  runtime_queue_;
+        std::stack< ptr_runtime_type >                  runtime_queue_;
 
         // Current Stack
         ptr_runtime_type                    exec_;
@@ -114,6 +114,27 @@ namespace coas {
         // If the path is not in module list, then create a new nullObject
         // If match any module, then run the module and put the result as the node.
         Json::Value* node_by_path_(const Json::Value& path_value);
+
+        // Parser And Runner
+        // Parse the operator item
+        bool operator_parser_( size_t index, rpn::item_t& op );
+
+    public: 
+
+        // Result Reference
+        const rpn::item_t&          result;
+
+        // Create an empty stage, default C'str
+        costage();
+
+        // Get the error message
+        const std::string& err_string() const;
+
+        // Parse a code line
+        I_STATE code_parser( std::string&& code );
+        
+        // Exec the last parsed RPN object
+        E_STATE code_run();
     };
 
 }

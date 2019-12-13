@@ -42,7 +42,7 @@ namespace coas { namespace rpn {
     enum item_type {
         IT_NUMBER                   = 0,
         IT_STRING,
-        IT_PATH,    
+        IT_PATH,
 
         // Operators
         IT_SET                      = 100,
@@ -51,7 +51,7 @@ namespace coas { namespace rpn {
         IT_TIMES,
         IT_DIVID,
 
-        IT_EUQAL,
+        IT_EQUAL,
         IT_LESS_THAN,
         IT_LESS_EQUAL,
         IT_GREAT_THAN,
