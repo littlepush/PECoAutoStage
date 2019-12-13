@@ -12,3 +12,5 @@ $.($.subpath.pathValue + ($.subpath.indexValue + 1)) = ((2*3-1)*(60/5) + (12)) +
 $.subpath2 = $.subpath
 $.subpath2.indexValue = $.subpath2.indexValue + 1
 $.array[0] = "array1"
+$.array[$.minusCase] = "item 2"
+$.array[($.minusCase + 1) * 1] = "item 3"

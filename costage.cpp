@@ -194,6 +194,10 @@ namespace coas {
             parser_->op.push(op); return true;
         }
 
+        if ( parser_->op.top().type == rpn::IT_LEFT_BRACKETS ) {
+            parser_->op.push(op); return true;
+        }
+
         // If current op has a higher level, we need
         // to execute it first
         if ( parser_->op.top().type < op.type ) {
@@ -204,7 +208,8 @@ namespace coas {
         while (
             parser_->op.size() > 0 && 
             parser_->op.top().type > op.type && 
-            parser_->op.top().type != rpn::IT_LEFT_PARENTHESES 
+            parser_->op.top().type != rpn::IT_LEFT_PARENTHESES &&
+            parser_->op.top().type != rpn::IT_LEFT_BRACKETS
         ) {
             parser_->item.push(parser_->op.top());
             parser_->op.pop();
@@ -600,6 +605,15 @@ namespace coas {
                         err_ = "invalidate path begin with '.'";
                         return E_ASSERT;
                     }
+                    if ( exec_->data.top().type == rpn::IT_PATH ) {
+                        auto _pitem = exec_->data.top();
+                        exec_->data.pop();
+                        Json::Value* _pv = node_by_path_(_pitem.value);
+                        if ( _pv == NULL ) return E_ASSERT; // Path not found
+                        rpn::item_t _n{rpn::IT_STRING, *_pv};
+                        if ( _pv->isNumeric() ) _n.type = rpn::IT_NUMBER;
+                        exec_->data.push(_n);
+                    }
                     if ( exec_->data.top().type != rpn::IT_STRING && 
                         exec_->data.top().type != rpn::IT_NUMBER ) {
                         err_ = "invalidate path";
@@ -628,6 +642,7 @@ namespace coas {
                 default: break;
             };
         }
+        stack_return_();
         ON_DEBUG(
             std::cout << root_ << std::endl;
         )
