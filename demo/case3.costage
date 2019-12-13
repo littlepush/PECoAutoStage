@@ -1,0 +1,6 @@
+$.myValue = $.stdin
+$.void = $.condition($.myValue == "1").true({
+    $.void = $.stdout("input 1")
+}).false({
+    $.void = $.stdout("input is not 1")
+})

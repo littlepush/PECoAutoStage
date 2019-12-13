@@ -1,0 +1,15 @@
+$.case_array[0] = 1
+$.case_array[1] = 2
+$.case_array[2] = 3
+$.max_value = $.case_array.max()
+$.min_value = $.case_array.min()
+$.match_value = $.case_array.fetch({
+    $.return = $.this > 2
+})
+$.void = $.case_array.foreach({
+    $.this = $.this + 1
+})
+$.filter_result = $.case_array.filter({
+    $.return = ($.this / 2) == 0 
+});
+

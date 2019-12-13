@@ -234,7 +234,7 @@ namespace coas {
         #define __GET_C     code_[i];
         #define __GET_C_P   (i == 0) ? '\0' : code_[i - 1]
 
-        code_ += code;
+        code_ = code;   // Do Coyp
         utils::trim(code_);
         utils::code_filter_comment(code_);
         if ( code_.size() == 0 ) return I_UNFINISHED;
@@ -427,7 +427,7 @@ namespace coas {
                     break;
                 }
                 // TODO: When add EXEC? or JUMP?
-                // Create a sub stack when find '{'
+                // Create a sub stack when find '{' in next line
                 if ( c == '{' ) {
                     if ( c_n != '\0' ) {
                         err_ = "invalidate '{', following code must begin in a new line";
@@ -437,7 +437,15 @@ namespace coas {
                 }
                 // Until we meet matched '}', all status should be I_UNFINISHED
                 if ( c == '}' ) {
+                    if ( parser_queue_.size() == 1 ) {
+                        err_ = "invalidate '}', missing '{'";
+                        return I_SYNTAX;
+                    }
+                    std::string _substack_name = parser_->name;
                     parser_queue_.pop();
+                    parser_ = parser_queue_.top();
+                    rpn::item_t _s{rpn::IT_STACK, Json::Value(_substack_name)};
+                    parser_->item.push(_s);
                     break;
                 }
 
@@ -454,18 +462,21 @@ namespace coas {
                     c = __GET_C;
                     c_n = __GET_C_N;
                 }
+                // Exec, not a node
+                if ( c_n == '(' ) {
+                    rpn::item_t _e{rpn::IT_EXEC, Json::Value(_s)};
+                    if ( !operator_parser_(i, _e) ) return I_SYNTAX;
+                    rpn::item_t _ba{rpn::IT_BOA, Json::Value(-1)};
+                    parser_->item.push(_ba);
+                    break;
+                }
                 rpn::item_t _i{rpn::IT_STRING, Json::Value(_s)};
                 parser_->item.push(_i);
-
                 // If this is the last part of the path
                 // add a node op
                 if ( c_n != '.' ) {
                     rpn::item_t _n{rpn::IT_NODE, Json::Value(".")};
                     if ( !operator_parser_(i, _n) ) return I_SYNTAX;
-                }
-                if ( c_n == '(' ) {
-                    rpn::item_t _e{rpn::IT_EXEC, Json::Value("x")};
-                    if ( !operator_parser_(i, _e) ) return I_SYNTAX;
                 }
             } while ( false );
 
@@ -490,7 +501,6 @@ namespace coas {
             parser_->item.pop();
         }
 
-        code_.clear();
         parser_queue_.pop();
         if ( parser_queue_.size() != 0 ) {
             parser_ = parser_queue_.top();
@@ -512,6 +522,8 @@ namespace coas {
                 case rpn::IT_NUMBER:
                 case rpn::IT_STRING:
                 case rpn::IT_BOOL:
+                case rpn::IT_STACK:
+                case rpn::IT_BOA:
                     exec_->data.push(_rpn); break;
                 case rpn::IT_PLUS: 
                 {
@@ -804,6 +816,41 @@ namespace coas {
                     }
                     rpn::item_t _node_ref{rpn::IT_PATH, _node_path};
                     exec_->data.push(_node_ref);
+                    break;
+                }
+                case rpn::IT_EXEC: 
+                {
+                    if ( exec_->data.size() == 0 ) {
+                        err_ = "missing run path for function";
+                        return E_ASSERT;
+                    }
+                    std::list< rpn::item_t > _args;
+                    while ( exec_->data.size() > 1 && exec_->data.top().type != rpn::IT_BOA ) {
+                        _args.push_front(exec_->data.top());
+                        exec_->data.pop();
+                    }
+                    if ( exec_->data.size() <= 1 ) {
+                        err_ = "logic error, too many arguments";
+                        return E_ASSERT;
+                    }
+                    // Pop BOA
+                    exec_->data.pop();
+                    // Next should be the node who invoke the function
+                    if ( exec_->data.top().type != rpn::IT_PATH ) {
+                        err_ = "logic error, missing `this`";
+                        return E_ASSERT;
+                    }
+                    _args.push_front(exec_->data.top());
+                    exec_->data.pop();
+
+                    // Tell to run
+                    ON_DEBUG(
+                        std::cout << "run " << _rpn.value.asString() << 
+                            " with " << _args.size() << " arguments" << std::endl;
+                        rpn::item_t _r{rpn::IT_NUMBER, Json::Value(1)};
+                        exec_->data.push(_r);
+                    )
+                    // To do: Invoke the function
                     break;
                 }
                 default: break;

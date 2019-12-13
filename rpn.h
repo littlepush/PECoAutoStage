@@ -44,6 +44,8 @@ namespace coas { namespace rpn {
         IT_STRING,
         IT_BOOL,
         IT_PATH,
+        IT_STACK,                   // Sub stack
+        IT_BOA,                     // Begin of Arguments
 
         // Operators
         IT_SET                      = 100,
@@ -58,8 +60,8 @@ namespace coas { namespace rpn {
         IT_GREAT_THAN,
         IT_GREAT_EQUAL,
 
-        IT_NODE,
         IT_EXEC,
+        IT_NODE,
 
         // Sub
         IT_LEFT_BRACES,             // {
