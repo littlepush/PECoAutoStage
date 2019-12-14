@@ -149,6 +149,9 @@ namespace coas {
         // Return Value
         const Json::Value&          returnValue;
 
+        // Root Node
+        const Json::Value&          rootValue;
+
         // Create an empty stage, default C'str
         costage();
         ~costage();

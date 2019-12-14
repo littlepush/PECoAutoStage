@@ -263,7 +263,7 @@ namespace coas {
     costage::costage() : 
     void_(Json::nullValue), return_(Json::nullValue),
     group_(nullptr), exec_(nullptr), parser_(nullptr), 
-    result(result_), returnValue(return_) {
+    result(result_), returnValue(return_), rootValue(root_) {
         result_.type = rpn::IT_VOID;
     }
 
@@ -415,6 +415,16 @@ namespace coas {
                 }
                 if ( c == '/' ) {
                     rpn::item_t _i{rpn::IT_DIVID, Json::Value("/")};
+                    if ( !operator_parser_(i, _i) ) return I_SYNTAX;
+                    break;
+                }
+                if ( c == '%' ) {
+                    rpn::item_t _i{rpn::IT_MOD, Json::Value("%")};
+                    if ( !operator_parser_(i, _i) ) return I_SYNTAX;
+                    break;
+                }
+                if ( c == '^' ) {
+                    rpn::item_t _i{rpn::IT_POW, Json::Value("^")};
                     if ( !operator_parser_(i, _i) ) return I_SYNTAX;
                     break;
                 }
@@ -583,10 +593,16 @@ namespace coas {
 
             switch (_rpn.type) {
                 case rpn::IT_NUMBER:
+                {
+                    if ( _rpn.value.isDouble() == false ) {
+                        _rpn.value = Json::Value(_rpn.value.asDouble());
+                    }
+                }
                 case rpn::IT_STRING:
                 case rpn::IT_OBJECT:
                 case rpn::IT_ARRAY:
                 case rpn::IT_BOOL:
+                case rpn::IT_NULL:
                 case rpn::IT_STACK:
                 case rpn::IT_BOA:
                     _data.push(_rpn); break;
@@ -669,6 +685,56 @@ namespace coas {
                         _data.push(_r);
                     } else {
                         err_ =  original_code + ", invalidate type around '*'";
+                        return E_ASSERT;
+                    }
+                    break;
+                }
+                case rpn::IT_MOD:
+                {
+                    if ( _data.size() < 2 ) {
+                        err_ =  original_code + ", syntax error near '%'"; return E_ASSERT;
+                    }
+                    auto _v1 = _data.top(); _data.pop();
+                    auto _v2 = _data.top(); _data.pop();
+                    Json::Value *_pv1 = (_v1.type != rpn::IT_PATH) ? &_v1.value : node_by_path_(_v1.value);
+                    if ( _pv1 == NULL ) return E_ASSERT;
+                    Json::Value *_pv2 = (_v2.type != rpn::IT_PATH) ? &_v2.value : node_by_path_(_v2.value);
+                    if ( _pv2 == NULL ) return E_ASSERT;
+                    Json::Value &_jv1 = *_pv1;
+                    Json::Value &_jv2 = *_pv2;
+                    if ( 
+                        (_v1.type == rpn::IT_NUMBER || (_v1.type == rpn::IT_PATH && _jv1.isNumeric())) &&
+                        (_v2.type == rpn::IT_NUMBER || (_v2.type == rpn::IT_PATH && _jv2.isNumeric()))
+                    ) {
+                        rpn::item_t _r{rpn::IT_NUMBER, (double)(_jv2.asInt64() % _jv1.asInt64())};
+                        _data.push(_r);
+                    } else {
+                        err_ =  original_code + ", invalidate type around '%'";
+                        return E_ASSERT;
+                    }
+                    break;
+                }
+                case rpn::IT_POW:
+                {
+                    if ( _data.size() < 2 ) {
+                        err_ =  original_code + ", syntax error near '^'"; return E_ASSERT;
+                    }
+                    auto _v1 = _data.top(); _data.pop();
+                    auto _v2 = _data.top(); _data.pop();
+                    Json::Value *_pv1 = (_v1.type != rpn::IT_PATH) ? &_v1.value : node_by_path_(_v1.value);
+                    if ( _pv1 == NULL ) return E_ASSERT;
+                    Json::Value *_pv2 = (_v2.type != rpn::IT_PATH) ? &_v2.value : node_by_path_(_v2.value);
+                    if ( _pv2 == NULL ) return E_ASSERT;
+                    Json::Value &_jv1 = *_pv1;
+                    Json::Value &_jv2 = *_pv2;
+                    if ( 
+                        (_v1.type == rpn::IT_NUMBER || (_v1.type == rpn::IT_PATH && _jv1.isNumeric())) &&
+                        (_v2.type == rpn::IT_NUMBER || (_v2.type == rpn::IT_PATH && _jv2.isNumeric()))
+                    ) {
+                        rpn::item_t _r{rpn::IT_NUMBER, pow(_jv2.asDouble(), _jv1.asDouble())};
+                        _data.push(_r);
+                    } else {
+                        err_ =  original_code + ", invalidate type around '^'";
                         return E_ASSERT;
                     }
                     break;
@@ -958,9 +1024,14 @@ namespace coas {
                     }
 
                     // _args.push_front(_data.top());
-
+                    Json::Value *_pthis = node_by_path_(_data.top().value);
+                    if ( _pthis == NULL ) return E_ASSERT;
                     // Tell to run
-                    auto _pmodule = module_manager::search_module(_rpn.value.asString(), _data.top());
+                    auto _pmodule = module_manager::search_module(
+                        _rpn.value.asString(), 
+                        *_pthis, 
+                        (_data.top().value.size() == 0)     // Empty node path array means root
+                    );
                     if ( _pmodule == nullptr ) {
                         err_ = original_code + ", method `" + _rpn.value.asString() + "` not found";
                         return E_ASSERT;
@@ -975,7 +1046,7 @@ namespace coas {
                     // Invoke the method
                     auto _ret = _pmodule->exec(*this, this_stack_.top(), _args);
                     if ( _ret.type == rpn::IT_ERROR ) {
-                        err_ = _ret.value.asString();
+                        err_ = original_code + ", " + _ret.value.asString();
                         return E_ASSERT;
                     }
                     _data.push(_ret);

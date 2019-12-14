@@ -46,6 +46,7 @@ namespace coas { namespace rpn {
         IT_ARRAY,
         IT_BOOL,
         IT_PATH,
+        IT_NULL,
         IT_STACK,                   // Sub stack
         IT_BOA,                     // Begin of Arguments
 
@@ -55,6 +56,8 @@ namespace coas { namespace rpn {
         IT_MINUS,
         IT_TIMES,
         IT_DIVID,
+        IT_MOD,
+        IT_POW,
 
         IT_EQUAL,
         IT_NOT_EQUAL,

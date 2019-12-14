@@ -47,7 +47,7 @@ namespace coas {
     typedef std::function< rpn::item_t ( costage&, const rpn::item_t&, const std::list< rpn::item_t >& ) > 
         module_function_t;
 
-    typedef std::function< bool ( const rpn::item_t& ) > 
+    typedef std::function< bool ( const Json::Value&, bool ) > 
         module_match_t;
 
     typedef struct {
@@ -80,7 +80,15 @@ namespace coas {
         static void register_module( module_type&& m );
 
         // Search if a module with name has been registered
-        static ptr_module_type search_module( const std::string& name, const rpn::item_t& this_path );
+        static ptr_module_type search_module( 
+            const std::string& name, 
+            const Json::Value& invoker,
+            bool is_root
+        );
+
+        // Utility
+        // Create a error object for returning
+        static rpn::item_t ret_error( const std::string& message );
     };
 
 }

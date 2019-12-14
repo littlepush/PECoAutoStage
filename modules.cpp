@@ -29,30 +29,425 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
+#include <cotask.h>
+using namespace pe::co;
+
 #include "modules.h"
 #include "costage.h"
 
 namespace coas {
 
+    bool __func_default_match(const Json::Value& invoker, bool is_root) {
+        return ( invoker.isArray() || invoker.isObject() );
+    }
+    bool __func_root_match(const Json::Value& invoker, bool is_root) {
+        return is_root;
+    }
+    rpn::item_t __func_compare(
+        costage& stage, 
+        const rpn::item_t& this_path, 
+        const std::list< rpn::item_t >& args,
+        std::function< bool(const Json::Value&, const Json::Value&) > comp
+    ) {
+        Json::Value* _pthis = stage.get_node(this_path.value);
+        if ( args.size() > 1 ) {
+            return module_manager::ret_error("too many arguments");
+        }
+        const rpn::item_t* _parg = NULL;
+        if ( args.size() == 1 ) { 
+            auto _itarg = args.begin();
+            _parg = &(*_itarg);
+            if ( _parg->type != rpn::IT_EXEC ) {
+                return module_manager::ret_error("invalidate argument");
+            }
+        }
+
+        if ( _pthis->isArray() ) {
+            if ( _parg == NULL ) {
+                Json::Value* _plast = &(*_pthis)[0];
+                for ( Json::ArrayIndex i = 1; i < _pthis->size(); ++i ) {
+                    if ( comp((*_pthis)[i], *_plast) ) _plast = &(*_pthis)[i];
+                }
+                rpn::item_t _ret{rpn::IT_NUMBER, *_plast};
+                if ( _plast->isObject() ) _ret.type = rpn::IT_OBJECT;
+                else if ( _plast->isNumeric() ) _ret.type = rpn::IT_NUMBER;
+                else if ( _plast->isString() ) _ret.type = rpn::IT_STRING;
+                else if ( _plast->isBool() ) _ret.type = rpn::IT_BOOL;
+                return _ret;
+            } else {
+                int _ilast = 0;
+                for ( Json::ArrayIndex i = 0; i < _pthis->size(); ++i ) {
+                    rpn::item_t _this = this_path;
+                    _this.value.append((int)i);
+                    rpn::item_t _last = this_path;
+                    _last.value.append(_ilast);
+                    stage.push_this(std::move(_this));
+                    stage.push_last(std::move(_last));
+
+                    // Invoke the sub func to compare
+                    auto _e = stage.invoke_group( _parg->value.asString() );
+
+                    stage.pop_last();
+                    stage.pop_this();
+
+                    // toast the error message
+                    if (_e == E_ASSERT) return module_manager::ret_error(stage.err_string());
+                    if (_e == E_OK ) return module_manager::ret_error("missing compare result");
+                    if ( stage.returnValue.isBool() == false ) {
+                        return module_manager::ret_error("invalidate return type");
+                    }
+                    if ( stage.returnValue.asBool() ) _ilast = i;
+                }
+                rpn::item_t _ret = this_path;
+                _ret.value.append(_ilast);
+                return _ret;
+            }
+        } else {
+            if ( _parg == NULL ) return module_manager::ret_error("missing compare function");
+            auto _i = _pthis->begin();
+            std::string _nlast = _i.key().asString();
+            for (; _i != _pthis->end(); ++_i ) {
+                rpn::item_t _this = this_path;
+                _this.value.append(_i.key().asString());
+                rpn::item_t _last = this_path;
+                _last.value.append(_nlast);
+                stage.push_this(std::move(_this));
+                stage.push_last(std::move(_last));
+
+                // Invoke the sub func to compare
+                auto _e = stage.invoke_group( _parg->value.asString() );
+
+                stage.pop_last();
+                stage.pop_this();
+
+                // toast the error message
+                if (_e == E_ASSERT) return module_manager::ret_error(stage.err_string());
+                if (_e == E_OK ) return module_manager::ret_error("missing compare result");
+                if ( stage.returnValue.isBool() == false ) {
+                    return module_manager::ret_error("invalidate return type");
+                }
+                if ( stage.returnValue.asBool() ) _nlast = _i.key().asString();
+            }
+            rpn::item_t _ret = this_path;
+            _ret.value.append(_nlast);
+            return _ret;
+        }
+    }
     rpn::item_t __func_max( 
         costage& stage, 
         const rpn::item_t& this_path, 
         const std::list< rpn::item_t >& args 
     ) {
+        return __func_compare(stage, this_path, args, 
+            [](const Json::Value& _this, const Json::Value& _last) {
+                return _this > _last;
+            }
+        );
+    }
+    rpn::item_t __func_min( 
+        costage& stage, 
+        const rpn::item_t& this_path, 
+        const std::list< rpn::item_t >& args 
+    ) {
+        return __func_compare(stage, this_path, args, 
+            [](const Json::Value& _this, const Json::Value& _last) {
+                return _this < _last;
+            }
+        );
+    }
+    rpn::item_t __func_fetch(
+        costage& stage, 
+        const rpn::item_t& this_path, 
+        const std::list< rpn::item_t >& args 
+    ) {
         Json::Value* _pthis = stage.get_node(this_path.value);
-        if ( _pthis == NULL ) {
-            return rpn::item_t{rpn::IT_ERROR, Json::Value("this BAD_ACCESS")};
+        if ( args.size() != 1 ) {
+            return module_manager::ret_error("missing or invalidate arguments");
         }
-        Json::Value* _pmax = NULL;
+        const rpn::item_t* _parg = NULL;
+        auto _itarg = args.begin();
+        _parg = &(*_itarg);
+        if ( _parg->type != rpn::IT_STACK ) {
+            return module_manager::ret_error("invalidate argument");
+        }
+
         if ( _pthis->isArray() ) {
-            _pmax = &(*_pthis)[0];
-            for ( Json::ArrayIndex i = 1; i < _pthis->size(); ++i ) {
-                if ( *_pmax < (*_pthis)[i] ) _pmax = &(*_pthis)[i];
+            for ( Json::ArrayIndex i = 0; i < _pthis->size(); ++i ) {
+                rpn::item_t _this = this_path;
+                _this.value.append((int)i);
+                rpn::item_t _last = this_path;
+                _last.value.append(i == 0 ? 0 : (i - 1));
+                stage.push_this(std::move(_this));
+                stage.push_last(std::move(_last));
+
+                // Invoke the sub func to compare
+                auto _e = stage.invoke_group( _parg->value.asString() );
+
+                stage.pop_last();
+                stage.pop_this();
+
+                // toast the error message
+                if (_e == E_ASSERT) return module_manager::ret_error(stage.err_string());
+                if (_e == E_OK ) return module_manager::ret_error("missing compare result");
+                if ( stage.returnValue.isBool() == false ) {
+                    return module_manager::ret_error("invalidate return type");
+                }
+                // First match
+                if ( stage.returnValue.asBool() ) return _this;
+            }
+            return rpn::item_t{rpn::IT_NULL, Json::Value(Json::nullValue)};
+        } else {
+            if ( _parg == NULL ) return module_manager::ret_error("missing compare function");
+            auto _i = _pthis->begin();
+            std::string _nlast = _i.key().asString();
+            for (; _i != _pthis->end(); ++_i ) {
+                rpn::item_t _this = this_path;
+                _this.value.append(_i.key().asString());
+                rpn::item_t _last = this_path;
+                _last.value.append(_nlast);
+                stage.push_this(std::move(_this));
+                stage.push_last(std::move(_last));
+
+                // Invoke the sub func to compare
+                auto _e = stage.invoke_group( _parg->value.asString() );
+
+                stage.pop_last();
+                stage.pop_this();
+
+                // toast the error message
+                if (_e == E_ASSERT) return module_manager::ret_error(stage.err_string());
+                if (_e == E_OK ) return module_manager::ret_error("missing compare result");
+                if ( stage.returnValue.isBool() == false ) {
+                    return module_manager::ret_error("invalidate return type");
+                }
+                if ( stage.returnValue.asBool() ) return _this;
+            }
+            return rpn::item_t{rpn::IT_NULL, Json::Value(Json::nullValue)};
+        }
+    }
+    rpn::item_t __func_foreach(
+        costage& stage, 
+        const rpn::item_t& this_path, 
+        const std::list< rpn::item_t >& args 
+    ) {
+        Json::Value* _pthis = stage.get_node(this_path.value);
+        if ( args.size() != 1 ) {
+            return module_manager::ret_error("missing or invalidate arguments");
+        }
+        const rpn::item_t* _parg = NULL;
+        auto _itarg = args.begin();
+        _parg = &(*_itarg);
+        if ( _parg->type != rpn::IT_STACK ) {
+            return module_manager::ret_error("invalidate argument");
+        }
+
+        if ( _pthis->isArray() ) {
+            for ( Json::ArrayIndex i = 0; i < _pthis->size(); ++i ) {
+                rpn::item_t _this = this_path;
+                _this.value.append((int)i);
+                rpn::item_t _last = this_path;
+                _last.value.append(i == 0 ? 0 : (i - 1));
+                stage.push_this(std::move(_this));
+                stage.push_last(std::move(_last));
+
+                // Invoke the sub func to compare
+                auto _e = stage.invoke_group( _parg->value.asString() );
+
+                stage.pop_last();
+                stage.pop_this();
+
+                // toast the error message
+                if (_e == E_ASSERT) return module_manager::ret_error(stage.err_string());
+                if (_e != E_OK ) return module_manager::ret_error("foreach should not return anything");
+            }
+            return rpn::item_t{rpn::IT_VOID, Json::Value(Json::nullValue)};
+        } else {
+            if ( _parg == NULL ) return module_manager::ret_error("missing compare function");
+            auto _i = _pthis->begin();
+            std::string _nlast = _i.key().asString();
+            for (; _i != _pthis->end(); ++_i ) {
+                rpn::item_t _this = this_path;
+                _this.value.append(_i.key().asString());
+                rpn::item_t _last = this_path;
+                _last.value.append(_nlast);
+                stage.push_this(std::move(_this));
+                stage.push_last(std::move(_last));
+
+                // Invoke the sub func to compare
+                auto _e = stage.invoke_group( _parg->value.asString() );
+
+                stage.pop_last();
+                stage.pop_this();
+
+                // toast the error message
+                if (_e == E_ASSERT) return module_manager::ret_error(stage.err_string());
+                if (_e != E_OK ) return module_manager::ret_error("foreach should not return anything");
+            }
+            return rpn::item_t{rpn::IT_VOID, Json::Value(Json::nullValue)};
+        }
+    }
+    rpn::item_t __func_filter(
+        costage& stage, 
+        const rpn::item_t& this_path, 
+        const std::list< rpn::item_t >& args 
+    ) {
+        Json::Value* _pthis = stage.get_node(this_path.value);
+        if ( args.size() != 1 ) {
+            return module_manager::ret_error("missing or invalidate arguments");
+        }
+        const rpn::item_t* _parg = NULL;
+        auto _itarg = args.begin();
+        _parg = &(*_itarg);
+        if ( _parg->type != rpn::IT_STACK ) {
+            return module_manager::ret_error("invalidate argument");
+        }
+
+        Json::Value _result(Json::arrayValue);
+
+        if ( _pthis->isArray() ) {
+            for ( Json::ArrayIndex i = 0; i < _pthis->size(); ++i ) {
+                rpn::item_t _this = this_path;
+                _this.value.append((int)i);
+                rpn::item_t _last = this_path;
+                _last.value.append(i == 0 ? 0 : (i - 1));
+                stage.push_this(std::move(_this));
+                stage.push_last(std::move(_last));
+
+                // Invoke the sub func to compare
+                auto _e = stage.invoke_group( _parg->value.asString() );
+
+                stage.pop_last();
+                stage.pop_this();
+
+                // toast the error message
+                if (_e == E_ASSERT) return module_manager::ret_error(stage.err_string());
+                if (_e == E_OK ) return module_manager::ret_error("missing compare result");
+                if ( stage.returnValue.isBool() == false ) {
+                    return module_manager::ret_error("invalidate return type");
+                }
+                // First match
+                if ( stage.returnValue.asBool() ) {
+                    _result.append((*_pthis)[i]);
+                }
+            }
+        } else {
+            if ( _parg == NULL ) return module_manager::ret_error("missing compare function");
+            auto _i = _pthis->begin();
+            std::string _nlast = _i.key().asString();
+            for (; _i != _pthis->end(); ++_i ) {
+                rpn::item_t _this = this_path;
+                _this.value.append(_i.key().asString());
+                rpn::item_t _last = this_path;
+                _last.value.append(_nlast);
+                stage.push_this(std::move(_this));
+                stage.push_last(std::move(_last));
+
+                // Invoke the sub func to compare
+                auto _e = stage.invoke_group( _parg->value.asString() );
+
+                stage.pop_last();
+                stage.pop_this();
+
+                // toast the error message
+                if (_e == E_ASSERT) return module_manager::ret_error(stage.err_string());
+                if (_e == E_OK ) return module_manager::ret_error("missing compare result");
+                if ( stage.returnValue.isBool() == false ) {
+                    return module_manager::ret_error("invalidate return type");
+                }
+                // First match
+                if ( stage.returnValue.asBool() ) {
+                    _result.append(*_i);
+                }
             }
         }
-        return rpn::item_t{rpn::IT_NUMBER, *_pmax};
+        return rpn::item_t{rpn::IT_ARRAY, _result};
     }
 
+    bool __func_size_match(const Json::Value& invoker, bool is_root) {
+        return !invoker.isNumeric();
+    }
+    rpn::item_t __func_size(
+        costage& stage, 
+        const rpn::item_t& this_path, 
+        const std::list< rpn::item_t >& args 
+    ) {
+        Json::Value* _pthis = stage.get_node(this_path.value);
+        if ( args.size() != 0 ) {
+            return module_manager::ret_error("too many arguments");
+        }
+
+        if ( _pthis->isString() ) return rpn::item_t{rpn::IT_NUMBER, (double)_pthis->asString().size()};
+        if ( _pthis->isNull() ) return rpn::item_t{rpn::IT_NUMBER, (double)0};
+        return rpn::item_t{rpn::IT_NUMBER, (double)_pthis->size()};
+    }
+    rpn::item_t __func_stdin(
+        costage& stage, 
+        const rpn::item_t& this_path, 
+        const std::list< rpn::item_t >& args 
+    ) {
+        if ( args.size() != 0 ) {
+            return module_manager::ret_error("too many arguments");
+        }
+
+        std::string _line;
+        pe::co::waiting_signals _sig = pe::co::no_signal;
+        fcntl(STDIN_FILENO, F_SETFL, fcntl(STDIN_FILENO, F_GETFL) | O_NONBLOCK );
+        do {
+            _sig = pe::co::this_task::wait_fd_for_event(
+                STDIN_FILENO, pe::co::event_read, std::chrono::seconds(1)
+            );
+            if ( _sig == pe::co::bad_signal ) break;
+            if ( _sig == pe::co::receive_signal ) {
+                std::getline(std::cin, _line);
+                return rpn::item_t{rpn::IT_STRING, Json::Value(_line)};
+            }
+        } while ( true );
+        return module_manager::ret_error("input interrpted");
+    }
+    rpn::item_t __func_stdout(
+        costage& stage, 
+        const rpn::item_t& this_path, 
+        const std::list< rpn::item_t >& args 
+    ) {
+        if ( args.size() == 0 ) {
+            return module_manager::ret_error("output nothing");
+        }
+        for ( auto& i : args ) {
+            if ( i.type == rpn::IT_PATH ) {
+                Json::Value* _node = stage.get_node(i.value);
+                if ( _node == NULL ) {
+                    std::cout << "null" << std::endl;
+                } else {
+                    std::cout << *_node << std::endl;
+                }
+            } else {
+                std::cout << i.value << std::endl;
+            }
+        }
+        return rpn::item_t{rpn::IT_VOID, Json::Value(Json::nullValue)};
+    }
+    rpn::item_t __func_stderr(
+        costage& stage, 
+        const rpn::item_t& this_path, 
+        const std::list< rpn::item_t >& args 
+    ) {
+        if ( args.size() == 0 ) {
+            return module_manager::ret_error("output nothing");
+        }
+        for ( auto& i : args ) {
+            if ( i.type == rpn::IT_PATH ) {
+                Json::Value* _node = stage.get_node(i.value);
+                if ( _node == NULL ) {
+                    std::cerr << "null" << std::endl;
+                } else {
+                    std::cerr << *_node << std::endl;
+                }
+            } else {
+                std::cerr << i.value << std::endl;
+            }
+        }
+        return rpn::item_t{rpn::IT_VOID, Json::Value(Json::nullValue)};
+    }
 
     // C'str
     module_manager::module_manager() {
@@ -71,7 +466,31 @@ namespace coas {
     // Initialize all default modules
     void module_manager::init_default_modules() {
         module_manager::register_module(module_type{
-            "max", nullptr, &__func_max
+            "max", &__func_default_match, &__func_max
+        });
+        module_manager::register_module(module_type{
+            "min", &__func_default_match, &__func_min
+        });
+        module_manager::register_module(module_type{
+            "fetch", &__func_default_match, &__func_fetch
+        });
+        module_manager::register_module(module_type{
+            "foreach", &__func_default_match, &__func_foreach
+        });
+        module_manager::register_module(module_type{
+            "filter", &__func_default_match, &__func_filter
+        });
+        module_manager::register_module(module_type{
+            "size", &__func_size_match, &__func_size
+        });
+        module_manager::register_module(module_type{
+            "stdin", &__func_root_match, &__func_stdin
+        });
+        module_manager::register_module(module_type{
+            "stdout", &__func_root_match, &__func_stdout
+        });
+        module_manager::register_module(module_type{
+            "stderr", &__func_root_match, &__func_stderr
         });
     }
 
@@ -89,14 +508,24 @@ namespace coas {
     }
 
     // Search if a module with name has been registered
-    ptr_module_type module_manager::search_module( const std::string& name, const rpn::item_t& this_path ) {
+    ptr_module_type module_manager::search_module( 
+        const std::string& name, 
+        const Json::Value& invoker,
+        bool is_root
+    ) {
         auto _mit = singleton().module_map_.find(name);
         if ( _mit == singleton().module_map_.end() ) return nullptr;
         for ( auto& _pmodule : (*_mit->second) ) {
             if ( _pmodule->is_match == nullptr ) return _pmodule;
-            if ( _pmodule->is_match(this_path) ) return _pmodule;
+            if ( _pmodule->is_match(invoker, is_root) ) return _pmodule;
         }
         return nullptr;
+    }
+
+    // Utility
+    // Create a error object for returning
+    rpn::item_t module_manager::ret_error( const std::string& message ) {
+        return rpn::item_t{rpn::IT_ERROR, Json::Value(message)};
     }
 
 }

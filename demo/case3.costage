@@ -1,4 +1,5 @@
-$.myValue = $.stdin
+$.void = $.stdout("hello coas")
+$.myValue = $.stdin()
 $.void = $.condition($.myValue == "1").true({
     $.void = $.stdout("input 1")
 }).false({
