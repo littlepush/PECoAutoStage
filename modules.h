@@ -44,7 +44,42 @@ namespace coas {
     // Pre-Definition
     class costage;
 
-    rpn::item_t __func_max( costage& stage, const rpn::item_t& this_path, std::list< rpn::item_t > args );
+    typedef std::function< rpn::item_t ( costage&, const rpn::item_t&, const std::list< rpn::item_t >& ) > 
+        module_function_t;
+
+    typedef std::function< bool ( const rpn::item_t& ) > 
+        module_match_t;
+
+    typedef struct {
+        std::string             name;
+        module_match_t          is_match;
+        module_function_t       exec;
+    } module_type;
+
+    typedef std::shared_ptr< module_type >  ptr_module_type;
+
+    class module_manager {
+
+        typedef std::list< ptr_module_type >                module_list_t;
+        typedef std::shared_ptr< module_list_t >            ptr_module_list_type;
+        std::map< std::string, ptr_module_list_type >       module_map_;
+
+        // C'str
+        module_manager();
+
+        // Singleton Instance
+        static module_manager& singleton();
+    public: 
+
+        ~module_manager();
+
+        // Register a new module
+        static void register_module( module_type m );
+
+        // Search if a module with name has been registered
+        static ptr_module_type search_module( const std::string& name, const rpn::item_t& this_path );
+    };
+
 }
 
 #endif 

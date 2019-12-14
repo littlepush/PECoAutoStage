@@ -953,23 +953,28 @@ namespace coas {
                     }
 
                     // _args.push_front(_data.top());
-                    this_stack_.push(_data.top());
-                    _data.pop();
 
                     // Tell to run
-                    // The following code should be changed with moduleManager
-                    if ( _rpn.value.asString() == "max" ) {
-                        auto _ret = __func_max(*this, this_stack_.top(), _args);
-                        if ( _ret.type == rpn::IT_ERROR ) {
-                            err_ = _ret.value.asString();
-                            return E_ASSERT;
-                        }
-                        _data.push(_ret);
-                    } else {
-                        err_ =  original_code + ", method `" + _rpn.value.asString() + "` not found";
+                    auto _pmodule = module_manager::search_module(_rpn.value.asString(), _data.top());
+                    if ( _pmodule == nullptr ) {
+                        err_ = original_code + ", method `" + _rpn.value.asString() + "` not found";
                         return E_ASSERT;
                     }
-
+                    if ( _pmodule->exec == nullptr ) {
+                        err_ = original_code + ", method `" + _rpn.value.asString() + "` with empty exec";
+                        return E_ASSERT;
+                    }
+                    // Now push this
+                    this_stack_.push(_data.top());
+                    _data.pop();
+                    // Invoke the method
+                    auto _ret = _pmodule->exec(*this, this_stack_.top(), _args);
+                    if ( _ret.type == rpn::IT_ERROR ) {
+                        err_ = _ret.value.asString();
+                        return E_ASSERT;
+                    }
+                    _data.push(_ret);
+                    // pop this stack
                     this_stack_.pop();
                     break;
                 }
