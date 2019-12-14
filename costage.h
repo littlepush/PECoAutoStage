@@ -68,7 +68,8 @@ namespace coas {
     public: 
         // Types
         typedef std::shared_ptr< rpn::stack_type >              ptr_stack_type;
-        typedef std::list< ptr_stack_type >                     stack_group_type;
+        typedef std::pair< ptr_stack_type, std::string >        code_item_type;
+        typedef std::list< code_item_type >                     stack_group_type;
         typedef std::shared_ptr< stack_group_type >             ptr_group_type;
         typedef std::shared_ptr< rpn::parser_stack_type >       ptr_parser_type;
     protected: 
@@ -84,6 +85,8 @@ namespace coas {
         Json::Value                         void_;
         // Return Item
         Json::Value                         return_;
+        // Assert Item
+        Json::Value                         assert_;
 
         // This Keyword
         rpn::stack_type                     this_stack_;
@@ -119,7 +122,7 @@ namespace coas {
 
         // Create a new sub stack and return the name
         // Will create both parser item and code part
-        void stack_create_();
+        void stack_create_(const std::string& original_code);
 
         // We finish to parse a code line and release the parser
         void stack_finish_();
@@ -134,7 +137,7 @@ namespace coas {
         bool operator_parser_( size_t index, rpn::item_t& op );
 
         // Run a line of code
-        E_STATE code_line_run_( ptr_stack_type code );
+        E_STATE code_line_run_( ptr_stack_type code, const std::string& original_code );
 
         // Run Code Group
         E_STATE code_group_run_( const std::string& group_name );

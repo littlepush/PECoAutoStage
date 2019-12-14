@@ -55,10 +55,13 @@ namespace coas { namespace rpn {
         IT_DIVID,
 
         IT_EQUAL,
+        IT_NOT_EQUAL,
         IT_LESS_THAN,
         IT_LESS_EQUAL,
         IT_GREAT_THAN,
         IT_GREAT_EQUAL,
+
+        IT_NOT,
 
         IT_EXEC,
         IT_NODE,

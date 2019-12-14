@@ -65,19 +65,19 @@ namespace coas {
         if ( group_ != nullptr ) {
             parser_stack_.pop();
             parser_ = parser_stack_.top();
-            exec_ = *group_->rbegin();            
+            exec_ = (*group_->rbegin()).first;            
         }
     }
 
     // Create a new sub stack and return the name
     // Will create both parser item and code part
-    void costage::stack_create_() {
+    void costage::stack_create_(const std::string& original_code) {
         if ( group_ == nullptr ) {
             entry_group_ = group_create_();
         }
 
         exec_ = std::make_shared< rpn::stack_type >();
-        group_->push_back(exec_);
+        group_->push_back(std::make_pair(exec_, original_code));
 
         // Create parser part
         ptr_parser_type _pparser = std::make_shared< rpn::parser_stack_type >();
@@ -97,6 +97,7 @@ namespace coas {
     // Get a node by path
     Json::Value* costage::node_by_path_(const Json::Value& path_value) {
         Json::Value* _p = &root_;
+        if ( path_value.size() == 0 ) return _p;    // Only Root
         size_t _i = 0;
 
         if ( path_value[0].isString() ) {
@@ -119,11 +120,19 @@ namespace coas {
                 return node_by_path_(last_stack_.top().value);
             } else if ( _keyword == "void" ) {
                 if ( path_value.size() != 1 ) {
-                    err_ = "`void` has no subpath"; return NULL;
+                    err_ = "`void` cannot have subpath"; return NULL;
                 }
                 return &void_;
             } else if ( _keyword == "return" ) {
+                if ( path_value.size() != 1 ) {
+                    err_ = "`return` cannot have subpath"; return NULL;
+                }
                 return &return_;
+            } else if ( _keyword == "assert" ) {
+                if ( path_value.size() != 1 ) {
+                    err_ = "`assert` cannot have subpath"; return NULL;
+                }
+                return &assert_;
             }
             /*
                 else if ( match_any_module_(_keyword) ) {
@@ -279,7 +288,7 @@ namespace coas {
         utils::code_filter_comment(_code);
         if ( _code.size() == 0 ) return I_UNFINISHED;
 
-        stack_create_();
+        stack_create_(_code);
 
         std::map< int, bool >   _nodelv;
         int                     _plv = 0;
@@ -439,6 +448,16 @@ namespace coas {
                     i += (c_n == '=' ? 1 : 0);
                     break;
                 }
+                if ( c == '!' ) {
+                    auto _t = ((c_n == '=') ?
+                        rpn::IT_NOT_EQUAL : 
+                        rpn::IT_NOT
+                    );
+                    rpn::item_t _i{_t, Json::Value((c_n == '=') ? "!=" : "!")};
+                    if ( !operator_parser_(i, _i) ) return I_SYNTAX;
+                    i += (c_n == '=' ? 1 : 0);
+                    break;
+                }
                 if ( c == '(' ) {
                     rpn::item_t _i{rpn::IT_LEFT_PARENTHESES, Json::Value("(")};
                     if ( !operator_parser_(i, _i) ) return I_SYNTAX;
@@ -546,7 +565,7 @@ namespace coas {
     }
 
     // Run a line of code
-    E_STATE costage::code_line_run_( ptr_stack_type code ) {
+    E_STATE costage::code_line_run_( ptr_stack_type code, const std::string& original_code ) {
         // Copy the code
         rpn::stack_type _runtime(*code);
         // New data stack
@@ -569,7 +588,7 @@ namespace coas {
                 case rpn::IT_PLUS: 
                 {
                     if ( _data.size() < 2 ) {
-                        err_ = "syntax error near '+'"; return E_ASSERT;
+                        err_ = original_code + ", syntax error near '+'"; return E_ASSERT;
                     }
                     auto _v1 = _data.top(); _data.pop();
                     auto _v2 = _data.top(); _data.pop();
@@ -594,7 +613,7 @@ namespace coas {
                         rpn::item_t _r{rpn::IT_NUMBER, _jv2.asDouble() + _jv1.asDouble()};
                         _data.push(_r);
                     } else {
-                        err_ = "invalidate type around '+'";
+                        err_ =  original_code + ", invalidate type around '+'";
                         return E_ASSERT;
                     }
                     break;
@@ -602,7 +621,7 @@ namespace coas {
                 case rpn::IT_MINUS:
                 {
                     if ( _data.size() < 2 ) {
-                        err_ = "syntax error near '-'"; return E_ASSERT;
+                        err_ =  original_code + ", syntax error near '-'"; return E_ASSERT;
                     }
                     auto _v1 = _data.top(); _data.pop();
                     auto _v2 = _data.top(); _data.pop();
@@ -619,7 +638,7 @@ namespace coas {
                         rpn::item_t _r{rpn::IT_NUMBER, _jv2.asDouble() - _jv1.asDouble()};
                         _data.push(_r);
                     } else {
-                        err_ = "invalidate type around '-'";
+                        err_ =  original_code + ", invalidate type around '-'";
                         return E_ASSERT;
                     }
                     break;
@@ -627,7 +646,7 @@ namespace coas {
                 case rpn::IT_TIMES:
                 {
                     if ( _data.size() < 2 ) {
-                        err_ = "syntax error near '*'"; return E_ASSERT;
+                        err_ =  original_code + ", syntax error near '*'"; return E_ASSERT;
                     }
                     auto _v1 = _data.top(); _data.pop();
                     auto _v2 = _data.top(); _data.pop();
@@ -644,7 +663,7 @@ namespace coas {
                         rpn::item_t _r{rpn::IT_NUMBER, _jv2.asDouble() * _jv1.asDouble()};
                         _data.push(_r);
                     } else {
-                        err_ = "invalidate type around '*'";
+                        err_ =  original_code + ", invalidate type around '*'";
                         return E_ASSERT;
                     }
                     break;
@@ -652,7 +671,7 @@ namespace coas {
                 case rpn::IT_DIVID:
                 {
                     if ( _data.size() < 2 ) {
-                        err_ = "syntax error near '/'"; return E_ASSERT;
+                        err_ =  original_code + ", syntax error near '/'"; return E_ASSERT;
                     }
                     auto _v1 = _data.top(); _data.pop();
                     auto _v2 = _data.top(); _data.pop();
@@ -667,13 +686,13 @@ namespace coas {
                         (_v2.type == rpn::IT_NUMBER || (_v2.type == rpn::IT_PATH && _jv2.isNumeric()))
                     ) {
                         if ( _jv1.asDouble() == 0.f ) {
-                            err_ = "zero overflow";
+                            err_ =  original_code + ", zero overflow";
                             return E_ASSERT;
                         }
                         rpn::item_t _r{rpn::IT_NUMBER, _jv2.asDouble() / _jv1.asDouble()};
                         _data.push(_r);
                     } else {
-                        err_ = "invalidate type around '/'";
+                        err_ =  original_code + ", invalidate type around '/'";
                         return E_ASSERT;
                     }
                     break;
@@ -681,7 +700,7 @@ namespace coas {
                 case rpn::IT_EQUAL:
                 {
                     if ( _data.size() < 2 ) {
-                        err_ = "syntax error near '/'"; return E_ASSERT;
+                        err_ =  original_code + ", syntax error near '/'"; return E_ASSERT;
                     }
                     auto _v1 = _data.top(); _data.pop();
                     auto _v2 = _data.top(); _data.pop();
@@ -699,7 +718,7 @@ namespace coas {
                 case rpn::IT_LESS_THAN:
                 {
                     if ( _data.size() < 2 ) {
-                        err_ = "syntax error near '<'"; return E_ASSERT;
+                        err_ =  original_code + ", syntax error near '<'"; return E_ASSERT;
                     }
                     auto _v1 = _data.top(); _data.pop();
                     auto _v2 = _data.top(); _data.pop();
@@ -716,7 +735,7 @@ namespace coas {
                         rpn::item_t _r{rpn::IT_BOOL, _jv2.asDouble() < _jv1.asDouble()};
                         _data.push(_r);
                     } else {
-                        err_ = "invalidate type around '<'";
+                        err_ =  original_code + ", invalidate type around '<'";
                         return E_ASSERT;
                     }
                     break;
@@ -724,7 +743,7 @@ namespace coas {
                 case rpn::IT_LESS_EQUAL:
                 {
                     if ( _data.size() < 2 ) {
-                        err_ = "syntax error near '<='"; return E_ASSERT;
+                        err_ =  original_code + ", syntax error near '<='"; return E_ASSERT;
                     }
                     auto _v1 = _data.top(); _data.pop();
                     auto _v2 = _data.top(); _data.pop();
@@ -741,7 +760,7 @@ namespace coas {
                         rpn::item_t _r{rpn::IT_BOOL, _jv2.asDouble() <= _jv1.asDouble()};
                         _data.push(_r);
                     } else {
-                        err_ = "invalidate type around '<='";
+                        err_ =  original_code + ", invalidate type around '<='";
                         return E_ASSERT;
                     }
                     break;
@@ -750,7 +769,7 @@ namespace coas {
                 case rpn::IT_GREAT_THAN:
                 {
                     if ( _data.size() < 2 ) {
-                        err_ = "syntax error near '>'"; return E_ASSERT;
+                        err_ =  original_code + ", syntax error near '>'"; return E_ASSERT;
                     }
                     auto _v1 = _data.top(); _data.pop();
                     auto _v2 = _data.top(); _data.pop();
@@ -767,7 +786,7 @@ namespace coas {
                         rpn::item_t _r{rpn::IT_BOOL, _jv2.asDouble() > _jv1.asDouble()};
                         _data.push(_r);
                     } else {
-                        err_ = "invalidate type around '>'";
+                        err_ =  original_code + ", invalidate type around '>'";
                         return E_ASSERT;
                     }
                     break;
@@ -775,7 +794,7 @@ namespace coas {
                 case rpn::IT_GREAT_EQUAL:
                 {
                     if ( _data.size() < 2 ) {
-                        err_ = "syntax error near '>='"; return E_ASSERT;
+                        err_ =  original_code + ", syntax error near '>='"; return E_ASSERT;
                     }
                     auto _v1 = _data.top(); _data.pop();
                     auto _v2 = _data.top(); _data.pop();
@@ -792,20 +811,58 @@ namespace coas {
                         rpn::item_t _r{rpn::IT_BOOL, _jv2.asDouble() >= _jv1.asDouble()};
                         _data.push(_r);
                     } else {
-                        err_ = "invalidate type around '>='";
+                        err_ =  original_code + ", invalidate type around '>='";
                         return E_ASSERT;
                     }
+                    break;
+                }
+                case rpn::IT_NOT_EQUAL:
+                {
+                    if ( _data.size() < 2 ) {
+                        err_ =  original_code + ", syntax error near '/'"; return E_ASSERT;
+                    }
+                    auto _v1 = _data.top(); _data.pop();
+                    auto _v2 = _data.top(); _data.pop();
+                    Json::Value *_pv1 = (_v1.type != rpn::IT_PATH) ? &_v1.value : node_by_path_(_v1.value);
+                    if ( _pv1 == NULL ) return E_ASSERT;
+                    Json::Value *_pv2 = (_v2.type != rpn::IT_PATH) ? &_v2.value : node_by_path_(_v2.value);
+                    if ( _pv2 == NULL ) return E_ASSERT;
+                    Json::Value &_jv1 = *_pv1;
+                    Json::Value &_jv2 = *_pv2;
+
+                    rpn::item_t _b{rpn::IT_BOOL, Json::Value(_jv2 != _jv1)};
+                    _data.push(_b);
+                    break;
+                }
+                case rpn::IT_NOT:
+                {
+                    if ( _data.size() < 1 ) {
+                        err_ = original_code + ", invalidate `!`";
+                        return E_ASSERT;
+                    }
+                    auto _v1 = _data.top(); _data.pop();
+                    Json::Value *_pv1 = (_v1.type != rpn::IT_PATH) ? &_v1.value : node_by_path_(_v1.value);
+                    if ( _pv1 == NULL ) return E_ASSERT;
+                    Json::Value &_jv1 = *_pv1;
+                    if ( _jv1.isBool() == false ) {
+                        err_ = original_code + ", cannot process `!` on non-bool object";
+                        return E_ASSERT;
+                    }
+                    // Create a temp value
+                    Json::Value _newValue = !_jv1.asBool();
+                    rpn::item_t _b{rpn::IT_BOOL, _newValue};
+                    _data.push(_b);
                     break;
                 }
                 case rpn::IT_SET:
                 {
                     if ( _data.size() < 2 ) {
-                        err_ = "syntax error near '='"; return E_ASSERT;
+                        err_ =  original_code + ", syntax error near '='"; return E_ASSERT;
                     }
                     auto _v1 = _data.top(); _data.pop();
                     auto _v2 = _data.top(); _data.pop();
                     if ( _v2.type != rpn::IT_PATH ) {
-                        err_ = "left side must be a path";
+                        err_ =  original_code + ", left side must be a path";
                         return E_ASSERT;
                     }
                     Json::Value *_pv1 = (_v1.type != rpn::IT_PATH) ? &_v1.value : node_by_path_(_v1.value);
@@ -813,6 +870,19 @@ namespace coas {
                     Json::Value &_jv1 = *_pv1;
                     Json::Value* _pv2 = node_by_path_(_v2.value);
                     if ( _pv2 == NULL ) return E_ASSERT;
+                    if ( _pv2 == &assert_ ) {
+                        if ( !_jv1.isBool() ) {
+                            err_ =  original_code + ", `assert` must set a boolean value";
+                            return E_ASSERT;
+                        }
+                        if ( _jv1.asBool() == false ) {
+                            err_ = original_code;
+                            return E_ASSERT;
+                        }
+                    } else if ( _pv2 == &return_ ) {
+                        *_pv2 = _jv1;
+                        return E_RETURN;
+                    }
                     Json::Value &_jv2 = *_pv2;
 
                     // Do copy
@@ -822,7 +892,7 @@ namespace coas {
                 case rpn::IT_NODE:
                 {
                     if ( _data.size() < 1 ) {
-                        err_ = "invalidate path begin with '.'";
+                        err_ =  original_code + ", invalidate path begin with '.'";
                         return E_ASSERT;
                     }
                     if ( _data.top().type == rpn::IT_PATH ) {
@@ -836,7 +906,7 @@ namespace coas {
                     }
                     if ( _data.top().type != rpn::IT_STRING && 
                         _data.top().type != rpn::IT_NUMBER ) {
-                        err_ = "invalidate path";
+                        err_ =  original_code + ", invalidate path";
                         return E_ASSERT;
                     }
 
@@ -862,7 +932,7 @@ namespace coas {
                 case rpn::IT_EXEC: 
                 {
                     if ( _data.size() == 0 ) {
-                        err_ = "missing run path for function";
+                        err_ =  original_code + ", missing run path for function";
                         return E_ASSERT;
                     }
                     std::list< rpn::item_t > _args;
@@ -871,14 +941,14 @@ namespace coas {
                         _data.pop();
                     }
                     if ( _data.size() <= 1 ) {
-                        err_ = "logic error, too many arguments";
+                        err_ =  original_code + ", logic error, too many arguments";
                         return E_ASSERT;
                     }
                     // Pop BOA
                     _data.pop();
                     // Next should be the node who invoke the function
                     if ( _data.top().type != rpn::IT_PATH ) {
-                        err_ = "logic error, missing `this`";
+                        err_ =  original_code + ", logic error, missing `this`";
                         return E_ASSERT;
                     }
 
@@ -896,7 +966,7 @@ namespace coas {
                         }
                         _data.push(_ret);
                     } else {
-                        err_ = "method `" + _rpn.value.asString() + "` not found";
+                        err_ =  original_code + ", method `" + _rpn.value.asString() + "` not found";
                         return E_ASSERT;
                     }
 
@@ -927,7 +997,7 @@ namespace coas {
             if ( !return_.isNull() ) {
                 return_ = Json::Value(Json::nullValue);
             }
-            auto _r = code_line_run_(_c);
+            auto _r = code_line_run_(_c.first, _c.second);
             if ( _r == E_OK ) continue;
             return _r;
         }
