@@ -73,8 +73,11 @@ namespace coas {
 
         ~module_manager();
 
+        // Initialize all default modules
+        static void init_default_modules();
+
         // Register a new module
-        static void register_module( module_type m );
+        static void register_module( module_type&& m );
 
         // Search if a module with name has been registered
         static ptr_module_type search_module( const std::string& name, const rpn::item_t& this_path );

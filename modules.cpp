@@ -56,16 +56,7 @@ namespace coas {
 
     // C'str
     module_manager::module_manager() {
-        // Register for max
-        ptr_module_list_type _max_list = std::make_shared< module_list_t >();
-        ptr_module_type _pmax = std::make_shared< module_type >();
-        _pmax->name = "max";
-        _pmax->is_match = nullptr;
-        _pmax->exec = &__func_max;
-        _max_list->push_back(_pmax);
-        module_map_[_pmax->name] = _max_list;
-
-
+        // nothing
     }
 
     // Singleton Instance
@@ -77,8 +68,15 @@ namespace coas {
         // Nothing
     }
 
+    // Initialize all default modules
+    void module_manager::init_default_modules() {
+        module_manager::register_module(module_type{
+            "max", nullptr, &__func_max
+        });
+    }
+
     // Register a new module
-    void module_manager::register_module( module_type m ) {
+    void module_manager::register_module( module_type&& m ) {
         ptr_module_type _pmodule = std::make_shared< module_type >(m);
         auto _mit = singleton().module_map_.find(m.name);
         if ( _mit == singleton().module_map_.end() ) {

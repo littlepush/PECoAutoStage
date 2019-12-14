@@ -299,6 +299,7 @@ namespace coas {
 
             if ( std::isspace(c) ) continue;    // ignore unused space
             if ( c == ',' ) continue;
+            if ( c == ';' && c_n == '\0' ) continue;    // ignore the ';' at the end of line
 
             // Check if last checked char is an op one.
             bool _is_p_op = (
@@ -471,8 +472,10 @@ namespace coas {
                     // Check if current () code block is a path node
                     if ( _nodelv.find(_plv) != _nodelv.end() ) {
                         _nodelv.erase(_plv);
-                        rpn::item_t _j{rpn::IT_NODE, Json::Value(".")};
-                        if ( !operator_parser_(i, _j) ) return I_SYNTAX;
+                        if ( c_n != '.' ) {
+                            rpn::item_t _j{rpn::IT_NODE, Json::Value(".")};
+                            if ( !operator_parser_(i, _j) ) return I_SYNTAX;
+                        }
                     }
                     break;
                 }
@@ -581,6 +584,8 @@ namespace coas {
             switch (_rpn.type) {
                 case rpn::IT_NUMBER:
                 case rpn::IT_STRING:
+                case rpn::IT_OBJECT:
+                case rpn::IT_ARRAY:
                 case rpn::IT_BOOL:
                 case rpn::IT_STACK:
                 case rpn::IT_BOA:
@@ -982,6 +987,7 @@ namespace coas {
             };
         }
         ON_DEBUG(
+            std::cout << "result after `" << original_code << "`: " << std::endl;
             std::cout << root_ << std::endl;
         )
         if ( _data.size() != 0 ) {

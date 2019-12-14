@@ -42,6 +42,8 @@ namespace coas { namespace rpn {
     enum item_type {
         IT_NUMBER                   = 0,
         IT_STRING,
+        IT_OBJECT,
+        IT_ARRAY,
         IT_BOOL,
         IT_PATH,
         IT_STACK,                   // Sub stack
@@ -60,7 +62,6 @@ namespace coas { namespace rpn {
         IT_LESS_EQUAL,
         IT_GREAT_THAN,
         IT_GREAT_EQUAL,
-
         IT_NOT,
 
         IT_EXEC,

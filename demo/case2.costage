@@ -1,6 +1,10 @@
 $.case_array[0] = 1
 $.case_array[1] = 2
 $.case_array[2] = 3
+$.object.key1 = "value1"
+$.object.key2 = "value2"
+$.object.key3.subkey1 = "value-3-1"
+$.object.key4 = $.object.("key" + $.case_array.max()).subkey1
 $.max_value = $.case_array.max()
 $.min_value = $.case_array.min()
 $.match_value = $.case_array.fetch({
@@ -11,5 +15,5 @@ $.void = $.case_array.foreach({
 })
 $.filter_result = $.case_array.filter({
     $.return = ($.this / 2) == 0 
-});
+})
 

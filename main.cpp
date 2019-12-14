@@ -67,6 +67,7 @@ void co_main( int argc, char* argv[] ) {
     }
     // On output info command
     if ( _normal_return ) return;
+    coas::module_manager::init_default_modules();
 
     auto _input = utils::argparser::individual_args();
     if ( _input.size() == 0 ) {
@@ -90,18 +91,47 @@ void co_main( int argc, char* argv[] ) {
                 std::cerr << "Assert Failed: " << _stage.err_string() << std::endl;
                 g_return = 98;
                 break;
-            } else if ( _ret == coas::E_RETURN ) {
-                std::cout << "Stage Pass" << std::endl;
-                // if ( _stage.result.type == coas::rpn::IT_VOID ) {
-                // } else {
-                //     std::cout << "Stage Failed" << std::endl;
-                // }
-                break;
-            }
+            } 
             _stage.code_clear();
             // Run OK, then continue to get next code
             ++_lno;
             std::cout << "coas(" << _lno << "): ";
+        }
+    } else {
+        // We get a file or folder as input
+        std::set< std::string > _stages;
+        for ( auto& _arg : _input ) {
+            if ( utils::is_file_existed(_arg) ) {
+                _stages.insert(_arg);
+            } else {
+                utils::rek_scan_dir(_arg, [&_stages](const std::string& name, bool is_folder) {
+                    if ( !is_folder ) _stages.insert(name);
+                    return true;
+                });
+            }
+        }
+        for ( auto stage_file : _stages ) {
+            loop::main.do_job([stage_file]() {
+                std::ifstream _stagef(stage_file);
+                if ( !_stagef ) return;
+                std::string _code;
+                coas::costage _stage;
+                size_t _line = 1;
+                while ( std::getline(_stagef, _code) ) {
+                    auto _flag = _stage.code_parser( std::move(_code) );
+                    if ( _flag == coas::I_SYNTAX ) {
+                        std::cerr << stage_file << ":" << _line << ": syntax error: " 
+                            << _stage.err_string() << std::endl;
+                        return;
+                    }
+                    this_task::yield();
+                    ++_line;
+                }
+                auto _ret = _stage.code_run();
+                if ( _ret == coas::E_ASSERT ) {
+                    std::cerr << stage_file << ": assert failed: " << _stage.err_string() << std::endl;
+                }
+            });
         }
     }
 }
