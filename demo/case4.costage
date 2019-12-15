@@ -1,0 +1,11 @@
+$.a[0].key = 1
+$.a[0].value.item0 = 1
+$.a[0].value.item1 = 2
+$.a[0].value.item2 = 3
+$.a[1].key = 2
+$.a[1].value.item0 = 4
+$.a[1].value.item1 = 5
+$.a[1].value.item2 = 6
+$.r = $.a.fetch({
+    $.return = $.this.key == 2
+}).value.item1      // $.r = 5

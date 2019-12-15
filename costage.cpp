@@ -48,6 +48,10 @@ namespace coas {
         // Current Group Switch to the new group
         group_ = _ngroup;
         current_group_ = _group_name;
+
+        exec_ = nullptr;
+        parser_ = nullptr;
+
         return _group_name;
     }
 
@@ -66,6 +70,9 @@ namespace coas {
             parser_stack_.pop();
             parser_ = parser_stack_.top();
             exec_ = (*group_->rbegin()).first;            
+        } else {
+            parser_ = nullptr;
+            exec_ = nullptr;
         }
     }
 
@@ -75,6 +82,9 @@ namespace coas {
         if ( group_ == nullptr ) {
             entry_group_ = group_create_();
         }
+
+        // Last code is UNFINISHED
+        if ( exec_ != nullptr ) return;
 
         exec_ = std::make_shared< rpn::stack_type >();
         group_->push_back(std::make_pair(exec_, original_code));
@@ -97,11 +107,19 @@ namespace coas {
     // Get a node by path
     Json::Value* costage::node_by_path_(const Json::Value& path_value) {
         Json::Value* _p = &root_;
-        if ( path_value.size() == 0 ) return _p;    // Only Root
-        size_t _i = 0;
+        std::string _root_item = path_value[0].asString();
+        if ( _root_item == "@" ) {
+            // Local Item
+            _p = &local_stack_.top().value;
+        } else if ( _root_item == "_" ) {
+            // Temp Item
+            _p = &temp_obj_;
+        }
+        if ( path_value.size() == 1 ) return _p;    // Only Root
+        size_t _i = 1;
 
-        if ( path_value[0].isString() ) {
-            std::string _keyword = path_value[0].asString();
+        if ( path_value[1].isString() && _root_item == "$" ) {
+            std::string _keyword = path_value[1].asString();
             if ( _keyword == "this" ) {
                 if ( this_stack_.size() == 0 ) {
                     err_ = "`this` = 0x0"; return NULL;
@@ -119,17 +137,17 @@ namespace coas {
                 }
                 return node_by_path_(last_stack_.top().value);
             } else if ( _keyword == "void" ) {
-                if ( path_value.size() != 1 ) {
+                if ( path_value.size() != 2 ) {
                     err_ = "`void` cannot have subpath"; return NULL;
                 }
                 return &void_;
             } else if ( _keyword == "return" ) {
-                if ( path_value.size() != 1 ) {
+                if ( path_value.size() != 2 ) {
                     err_ = "`return` cannot have subpath"; return NULL;
                 }
                 return &return_;
             } else if ( _keyword == "assert" ) {
-                if ( path_value.size() != 1 ) {
+                if ( path_value.size() != 2 ) {
                     err_ = "`assert` cannot have subpath"; return NULL;
                 }
                 return &assert_;
@@ -141,8 +159,8 @@ namespace coas {
             */
         }
 
-        std::string _last_node = "$";
-        for ( auto i = path_value.begin(); i != path_value.end(); ++i, ++_i ) {
+        std::string _last_node = _root_item;
+        for ( auto i = (path_value.begin()++); i != path_value.end(); ++i, ++_i ) {
             if ( i->isInt() ) {
                 // This should be a array's index
                 int _index = i->asInt();
@@ -202,8 +220,6 @@ namespace coas {
             }
             // Remove the '['
             parser_->op.pop();
-            rpn::item_t _n{rpn::IT_NODE, Json::Value(".")};
-            parser_->item.push(_n);
             return true;
         }
 
@@ -497,6 +513,10 @@ namespace coas {
                 if ( c == ']' ) {
                     rpn::item_t _i{rpn::IT_RIGHT_BRACKETS, Json::Value("]")};
                     if ( !operator_parser_(i, _i) ) return I_SYNTAX;
+                    if ( c_n != '.' ) {
+                        rpn::item_t _n{rpn::IT_NODE, Json::Value(".")};
+                        if ( !operator_parser_(i, _n) ) return I_SYNTAX;
+                    }
                     break;
                 }
                 // TODO: When add EXEC? or JUMP?
@@ -972,7 +992,10 @@ namespace coas {
                         Json::Value* _pv = node_by_path_(_pitem.value);
                         if ( _pv == NULL ) return E_ASSERT; // Path not found
                         rpn::item_t _n{rpn::IT_STRING, *_pv};
-                        if ( _pv->isNumeric() ) _n.type = rpn::IT_NUMBER;
+                        if ( _pv->isObject() ) _n.type = rpn::IT_OBJECT;
+                        else if ( _pv->isNumeric() ) _n.type = rpn::IT_NUMBER;
+                        else if ( _pv->isArray() ) _n.type = rpn::IT_ARRAY;
+                        else if ( _pv->isBool() ) _n.type = rpn::IT_BOOL;
                         _data.push(_n);
                     }
                     if ( _data.top().type != rpn::IT_STRING && 
@@ -984,9 +1007,10 @@ namespace coas {
                     Json::Value _node = _data.top().value;
                     _data.pop();
 
+                    _node_stack.push(_node);
+
                     // Path unfinished
                     if ( _node.asString() != "$" ) {
-                        _node_stack.push(_node);
                         break;
                     }
 
@@ -1074,17 +1098,24 @@ namespace coas {
             return E_ASSERT;
         }
         ptr_group_type _pgroup = code_map_[group_name];
+        ON_DEBUG(
+            std::cout << "jump to group: " << group_name << ", with "
+                << _pgroup->size() << " lines code" << std::endl;
+        )
 
+        E_STATE _r = E_OK;
+        rpn::item_t _l{rpn::IT_OBJECT, Json::Value(Json::objectValue)};
+        local_stack_.push(_l);
         for ( auto& _c : (*_pgroup) ) {
             if ( !return_.isNull() ) {
                 return_ = Json::Value(Json::nullValue);
             }
-            auto _r = code_line_run_(_c.first, _c.second);
+            _r = code_line_run_(_c.first, _c.second);
             if ( _r == E_OK ) continue;
-            return _r;
+            break;
         }
-
-        return E_OK;
+        local_stack_.pop();
+        return _r;
     }
 
     // Exec the last parsed RPN object

@@ -87,11 +87,15 @@ namespace coas {
         Json::Value                         return_;
         // Assert Item
         Json::Value                         assert_;
+        // Temp Object
+        Json::Value                         temp_obj_;
 
         // This Keyword
         rpn::stack_type                     this_stack_;
         // Last Keyword
         rpn::stack_type                     last_stack_;
+        // Local Storage
+        rpn::stack_type                     local_stack_;
 
         // The main entry group name
         std::string                         entry_group_;
