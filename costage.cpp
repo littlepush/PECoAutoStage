@@ -91,6 +91,7 @@ namespace coas {
 
         // Create parser part
         ptr_parser_type _pparser = std::make_shared< rpn::parser_stack_type >();
+        _pparser->plv = 0;
 
         // Switch current parser
         parser_stack_.push(_pparser);
@@ -127,7 +128,11 @@ namespace coas {
                 if ( this_stack_.top().type != rpn::IT_PATH ) {
                     err_ = "`this` is not validate path"; return NULL;
                 }
-                return node_by_path_(this_stack_.top().value);
+                Json::Value _this_path = this_stack_.top().value;
+                for ( Json::ArrayIndex i = 2; i < path_value.size(); ++i ) {
+                    _this_path.append(path_value[i]);
+                }
+                return node_by_path_(_this_path);
             } else if ( _keyword == "last" ) {
                 if ( last_stack_.size() == 0 ) {
                     err_ = "`last` = 0x0"; return NULL;
@@ -135,7 +140,11 @@ namespace coas {
                 if ( last_stack_.top().type != rpn::IT_PATH ) {
                     err_ = "`last` is not a validate path"; return NULL;
                 }
-                return node_by_path_(last_stack_.top().value);
+                Json::Value _last_path = last_stack_.top().value;
+                for ( Json::ArrayIndex i = 2; i < path_value.size(); ++i ) {
+                    _last_path.append(path_value[i]);
+                }
+                return node_by_path_(_last_path);
             } else if ( _keyword == "void" ) {
                 if ( path_value.size() != 2 ) {
                     err_ = "`void` cannot have subpath"; return NULL;
@@ -160,7 +169,9 @@ namespace coas {
         }
 
         std::string _last_node = _root_item;
-        for ( auto i = (path_value.begin()++); i != path_value.end(); ++i, ++_i ) {
+        auto i = path_value.begin();
+        ++i;
+        for ( ; i != path_value.end(); ++i, ++_i ) {
             if ( i->isInt() ) {
                 // This should be a array's index
                 int _index = i->asInt();
@@ -306,8 +317,6 @@ namespace coas {
 
         stack_create_(_code);
 
-        std::map< int, bool >   _nodelv;
-        int                     _plv = 0;
         char                    _c_p = '\0';
         for ( size_t i = 0; i < _code.size(); ++i ) {
             char c = __GET_C;
@@ -390,7 +399,7 @@ namespace coas {
                 if ( c == '.' ) {
                     rpn::item_t _i{rpn::IT_NODE, Json::Value(".")};
                     if ( !operator_parser_(i, _i) ) return I_SYNTAX;
-                    if ( c_n == '(' ) _nodelv[_plv] = true;
+                    if ( c_n == '(' ) parser_->nodelv[parser_->plv] = true;
                     break;
                 }
 
@@ -488,20 +497,24 @@ namespace coas {
                 if ( c == '(' ) {
                     rpn::item_t _i{rpn::IT_LEFT_PARENTHESES, Json::Value("(")};
                     if ( !operator_parser_(i, _i) ) return I_SYNTAX;
-                    _plv += 1;
+                    parser_->plv += 1;
                     break;
                 }
                 if ( c == ')' ) {
-                    _plv -= 1;
+                    parser_->plv -= 1;
                     rpn::item_t _i{rpn::IT_RIGHT_PARENTHESES, Json::Value(")")};
                     if ( !operator_parser_(i, _i) ) return I_SYNTAX;
                     // Check if current () code block is a path node
-                    if ( _nodelv.find(_plv) != _nodelv.end() ) {
-                        _nodelv.erase(_plv);
+                    if ( parser_->nodelv.find(parser_->plv) != parser_->nodelv.end() ) {
+                        parser_->nodelv.erase(parser_->plv);
                         if ( c_n != '.' ) {
                             rpn::item_t _j{rpn::IT_NODE, Json::Value(".")};
                             if ( !operator_parser_(i, _j) ) return I_SYNTAX;
                         }
+                    } else if ( parser_->arglv.find(parser_->plv) != parser_->arglv.end() ) {
+                        parser_->arglv.erase(parser_->plv);
+                        rpn::item_t _ea{rpn::IT_EOA, Json::Value(-1)};
+                        parser_->item.push(_ea);
                     }
                     break;
                 }
@@ -561,6 +574,7 @@ namespace coas {
                     if ( !operator_parser_(i, _e) ) return I_SYNTAX;
                     rpn::item_t _ba{rpn::IT_BOA, Json::Value(-1)};
                     parser_->item.push(_ba);
+                    parser_->arglv[parser_->plv] = true;
                     break;
                 }
                 rpn::item_t _i{rpn::IT_STRING, Json::Value(_s)};
@@ -625,6 +639,7 @@ namespace coas {
                 case rpn::IT_NULL:
                 case rpn::IT_STACK:
                 case rpn::IT_BOA:
+                case rpn::IT_EOA:
                     _data.push(_rpn); break;
                 case rpn::IT_PLUS: 
                 {
@@ -802,8 +817,13 @@ namespace coas {
                     Json::Value &_jv1 = *_pv1;
                     Json::Value &_jv2 = *_pv2;
 
-                    rpn::item_t _b{rpn::IT_BOOL, Json::Value(_jv2 == _jv1)};
-                    _data.push(_b);
+                    if ( _jv1.isNumeric() && _jv2.isNumeric() ) {
+                        rpn::item_t _b{rpn::IT_BOOL, Json::Value(_jv2.asDouble() == _jv1.asDouble())};
+                        _data.push(_b);
+                    } else {
+                        rpn::item_t _b{rpn::IT_BOOL, Json::Value(_jv2 == _jv1)};
+                        _data.push(_b);
+                    }
                     break;
                 }
                 case rpn::IT_LESS_THAN:
@@ -999,9 +1019,16 @@ namespace coas {
                         _data.push(_n);
                     }
                     if ( _data.top().type != rpn::IT_STRING && 
-                        _data.top().type != rpn::IT_NUMBER ) {
+                        _data.top().type != rpn::IT_NUMBER &&
+                        _data.top().type != rpn::IT_EOA 
+                    ) {
                         err_ =  original_code + ", invalidate path";
                         return E_ASSERT;
+                    }
+
+                    if ( _data.top().type == rpn::IT_EOA ) {
+                        _node_stack.push(Json::Value("_"));
+                        break;
                     }
 
                     Json::Value _node = _data.top().value;
@@ -1030,6 +1057,11 @@ namespace coas {
                         err_ =  original_code + ", missing run path for function";
                         return E_ASSERT;
                     }
+                    if ( _data.top().type != rpn::IT_EOA ) {
+                        err_ = original_code + ", syntax error of function call";
+                        return E_ASSERT;
+                    }
+                    _data.pop();    // Ignore the EOA
                     std::list< rpn::item_t > _args;
                     while ( _data.size() > 1 && _data.top().type != rpn::IT_BOA ) {
                         _args.push_front(_data.top());
@@ -1073,7 +1105,27 @@ namespace coas {
                         err_ = original_code + ", " + _ret.value.asString();
                         return E_ASSERT;
                     }
-                    _data.push(_ret);
+                    if ( _node_stack.size() > 0 ) {
+                        if ( _ret.type == rpn::IT_PATH ) {
+                            Json::Value* _pret = node_by_path_(_ret.value);
+                            if ( _pret == NULL ) {
+                                err_ = original_code + ", invalidate return object";
+                                return E_ASSERT;
+                            }
+                            temp_obj_ = *_pret;
+                        } else {
+                            temp_obj_ = _ret.value;
+                        }
+                        Json::Value _node_path(Json::arrayValue);
+                        while ( _node_stack.size() > 0 ) {
+                            _node_path.append(_node_stack.top());
+                            _node_stack.pop();
+                        }
+                        rpn::item_t _node_ref{rpn::IT_PATH, _node_path};
+                        _data.push(_node_ref);
+                    } else {
+                        _data.push(_ret);
+                    }
                     // pop this stack
                     this_stack_.pop();
                     break;

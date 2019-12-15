@@ -49,6 +49,7 @@ namespace coas { namespace rpn {
         IT_NULL,
         IT_STACK,                   // Sub stack
         IT_BOA,                     // Begin of Arguments
+        IT_EOA,                     // End of Arguments
 
         // Operators
         IT_SET                      = 100,
@@ -80,7 +81,8 @@ namespace coas { namespace rpn {
 
         // Types
         IT_VOID                     = 10000,
-        IT_ERROR
+        IT_ERROR,
+        IT_TEMP
     };
 
     // Each word in the code will be convert to an item_t
@@ -98,6 +100,12 @@ namespace coas { namespace rpn {
         stack_type                      op;
         // Item
         stack_type                      item;
+        // Node Level
+        std::map< int, bool >           nodelv;
+        // Argument Level
+        std::map< int, bool >           arglv;
+        // Parentheses Level
+        int                             plv;
     } parser_stack_type;
 }}
 
