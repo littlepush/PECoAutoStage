@@ -128,6 +128,7 @@ void co_main( int argc, char* argv[] ) {
                     ++_line;
                 }
                 auto _ret = _stage.code_run();
+                std::cout << "result: " << std::endl << _stage.rootValue.toStyledString();
                 if ( _ret == coas::E_ASSERT ) {
                     std::cerr << stage_file << ": assert failed: " << _stage.err_string() << std::endl;
                 }

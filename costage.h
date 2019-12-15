@@ -158,6 +158,8 @@ namespace coas {
 
         // Create an empty stage, default C'str
         costage();
+        // Create a stage with some root data
+        costage(const Json::Value& prepared_root);
         ~costage();
 
         // Get the error message

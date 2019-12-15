@@ -1,0 +1,9 @@
+$.loop_index = 0
+$.void = $.loop($.expr({
+    $.return = $.loop_index < 10
+}), $.job({
+    $.void = $.stdout($.loop_index)
+}), $.after({
+    $.loop_index = $.loop_index + 1
+}))
+

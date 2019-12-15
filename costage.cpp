@@ -161,11 +161,6 @@ namespace coas {
                 }
                 return &assert_;
             }
-            /*
-                else if ( match_any_module_(_keyword) ) {
-                    // create a module and set to temp stack?
-                }
-            */
         }
 
         std::string _last_node = _root_item;
@@ -290,9 +285,19 @@ namespace coas {
     }
     // Create an empty stage, default C'str
     costage::costage() : 
-    void_(Json::nullValue), return_(Json::nullValue),
-    group_(nullptr), exec_(nullptr), parser_(nullptr), 
-    result(result_), returnValue(return_), rootValue(root_) {
+        void_(Json::nullValue), return_(Json::nullValue),
+        group_(nullptr), exec_(nullptr), parser_(nullptr), 
+        result(result_), returnValue(return_), rootValue(root_) 
+    {
+        result_.type = rpn::IT_VOID;
+    }
+    // Create a stage with some root data
+    costage::costage(const Json::Value& prepared_root) :
+        root_(prepared_root),
+        void_(Json::nullValue), return_(Json::nullValue),
+        group_(nullptr), exec_(nullptr), parser_(nullptr), 
+        result(result_), returnValue(return_), rootValue(root_) 
+    {
         result_.type = rpn::IT_VOID;
     }
 
@@ -634,37 +639,6 @@ namespace coas {
         std::stack< Json::Value >   _node_stack;
 
         while ( _runtime.size() != 0 ) {
-            // ON_DEBUG(
-            //     rpn::stack_type _druntime(_runtime);
-            //     std::list< std::string > _rlist;
-            //     while ( _druntime.size() != 0 ) {
-            //         std::string _s(_druntime.top().value.toStyledString());
-            //         utils::trim(_s);
-            //         _rlist.emplace_back( std::move(_s) );
-            //         _druntime.pop();
-            //     }
-            //     rpn::stack_type _ddata(_data);
-            //     std::list< std::string > _dlist;
-            //     while ( _ddata.size() != 0 ) {
-            //         std::string _s(_ddata.top().value.toStyledString());
-            //         utils::trim(_s);
-            //         _dlist.push_back( std::move(_s) );
-            //         _ddata.pop();
-            //     }
-            //     std::stack< Json::Value > _dnode(_node_stack);
-            //     std::list< std::string > _nlist;
-            //     while ( _dnode.size() != 0 ) {
-            //         std::string _s(_dnode.top().toStyledString());
-            //         utils::trim(_s);
-            //         _nlist.push_back( std::move(_s) );
-            //         _dnode.pop();
-            //     }
-
-            //     std::cout << "Step: " << std::endl;
-            //     std::cout << "R: " << utils::join(_rlist, ", ") << std::endl;
-            //     std::cout << "D: " << utils::join(_dlist, ", ") << std::endl;
-            //     std::cout << "N: " << utils::join(_nlist, ", ") << std::endl;
-            // )
             rpn::item_t _rpn = _runtime.top();
             _runtime.pop();
 
@@ -1190,10 +1164,6 @@ namespace coas {
             return E_ASSERT;
         }
         ptr_group_type _pgroup = code_map_[group_name];
-        ON_DEBUG(
-            std::cout << "jump to group: " << group_name << ", with "
-                << _pgroup->size() << " lines code" << std::endl;
-        )
 
         E_STATE _r = E_OK;
         rpn::item_t _l{rpn::IT_OBJECT, Json::Value(Json::objectValue)};
@@ -1207,9 +1177,6 @@ namespace coas {
             break;
         }
         local_stack_.pop();
-        ON_DEBUG(
-            std::cout << root_.toStyledString();
-        )
         return _r;
     }
 

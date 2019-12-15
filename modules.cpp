@@ -471,6 +471,36 @@ namespace coas {
         return rpn::item_t{rpn::IT_OBJECT, _jobValue};
     }
 
+    rpn::item_t __func_invoke(
+        costage& stage, 
+        const rpn::item_t& this_path, 
+        const std::list< rpn::item_t >& args 
+    ) {
+        if ( args.size() != 1 ) {
+            return module_manager::ret_error("missing or invalidate job argument");
+        }
+        const rpn::item_t* _parg = NULL;
+        auto _itarg = args.begin();
+        _parg = &(*_itarg);
+        if ( _parg->type != rpn::IT_STRING && _parg->type != rpn::IT_PATH ) {
+            return module_manager::ret_error("invalidate argument");
+        }
+        std::string _target;
+        if ( _parg->type == rpn::IT_PATH ) {
+            Json::Value* _pname = stage.get_node(_parg->value);
+            if ( _pname == NULL || !_pname->isString() ) {
+                return module_manager::ret_error("invalidate invoke target");
+            }
+            _target = _pname->asString();
+        } else {
+            _target = _parg->value.asString();
+        }
+        Json::Value _jobValue(Json::objectValue);
+        _jobValue["__stack"] = _target;
+        _jobValue["__type"] = "coas.job";
+        return rpn::item_t{rpn::IT_OBJECT, _jobValue};
+    }
+
     rpn::item_t __func_condition(
         costage& stage, 
         const rpn::item_t& this_path, 
@@ -576,7 +606,87 @@ namespace coas {
             break;  // Now we match the condition.
         }
         return rpn::item_t{rpn::IT_VOID, Json::Value(Json::nullValue)};
-    }    
+    }
+    rpn::item_t __func_loop(
+        costage& stage, 
+        const rpn::item_t& this_path, 
+        const std::list< rpn::item_t >& args 
+    ) {
+        if ( args.size() != 3 ) {
+            return module_manager::ret_error("missing loop argument");
+        }
+        auto _it = args.begin();
+        if ( 
+            _it->type != rpn::IT_BOOL && 
+            _it->type != rpn::IT_OBJECT
+        ) {
+            return module_manager::ret_error("invalidate expr in loop");
+        }
+        const Json::Value& _expr = _it->value;
+        ++_it;
+        if ( _it->type != rpn::IT_OBJECT ) {
+            return module_manager::ret_error("invalidate job in loop");
+        }
+        const Json::Value& _job = _it->value;
+        ++_it;
+        if ( _it->type != rpn::IT_OBJECT && _it->type != rpn::IT_NULL ) {
+            return module_manager::ret_error("invalidate after in loop");
+        }
+        const Json::Value& _after = _it->value;
+
+        if ( !_expr.isBool() ) {
+            if ( 
+                !_expr.isMember("__stack") || 
+                !_expr.isMember("__type") || 
+                _expr["__type"].asString() != "coas.job" 
+            ) {
+                return module_manager::ret_error("invalidate expr");
+            }
+        }
+        if ( 
+            !_job.isMember("__stack") || 
+            !_job.isMember("__type") || 
+            _job["__type"].asString() != "coas.job" 
+        ) {
+            return module_manager::ret_error("invalidate job");
+        }
+        if ( !_after.isNull() ) {
+            if ( 
+                !_after.isMember("__stack") || 
+                !_after.isMember("__type") || 
+                _after["__type"].asString() != "coas.job" 
+            ) {
+                return module_manager::ret_error("invalidate after");                
+            }
+        }
+
+        while ( true ) {
+            bool _condition = false;
+            if ( _expr.isBool() ) _condition = _expr.asBool();
+            else {
+                auto _e = stage.invoke_group(_expr["__stack"].asString());
+                if ( _e == E_ASSERT ) return module_manager::ret_error(stage.err_string());
+                if ( _e == E_OK ) return module_manager::ret_error("expr must has a return value");
+                if ( !stage.returnValue.isBool() ) {
+                    return module_manager::ret_error("expr must return a boolean value");
+                }
+                _condition = stage.returnValue.asBool();
+            }
+            if ( !_condition ) break;
+
+            // Do job
+            auto _ej = stage.invoke_group(_job["__stack"].asString());
+            if ( _ej == E_ASSERT ) return module_manager::ret_error(stage.err_string());
+            if ( _ej == E_RETURN ) return module_manager::ret_error("invalidate return in loop's job");
+
+            // Do after
+            if ( _after.isNull() ) continue;
+            auto _ea = stage.invoke_group(_after["__stack"].asString());
+            if ( _ea == E_ASSERT ) return module_manager::ret_error(stage.err_string());
+            if ( _ea == E_RETURN ) return module_manager::ret_error("invalidate return in loop's after");
+        }
+        return rpn::item_t{rpn::IT_VOID, Json::Value(Json::nullValue)};
+    }
     // C'str
     module_manager::module_manager() {
         // nothing
@@ -627,10 +737,19 @@ namespace coas {
             "job", &__func_root_match, &__func_job
         });
         module_manager::register_module(module_type{
+            "after", &__func_root_match, &__func_job
+        });
+        module_manager::register_module(module_type{
+            "invoke", &__func_root_match, &__func_invoke
+        });
+        module_manager::register_module(module_type{
             "condition", &__func_root_match, &__func_condition
         });
         module_manager::register_module(module_type{
             "check", &__func_array_match, &__func_check
+        });
+        module_manager::register_module(module_type{
+            "loop", &__func_root_match, &__func_loop
         });
     }
 
