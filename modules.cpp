@@ -43,6 +43,9 @@ namespace coas {
     bool __func_root_match(const Json::Value& invoker, bool is_root) {
         return is_root;
     }
+    bool __func_array_match(const Json::Value& invoker, bool is_root) {
+        return invoker.isArray();
+    }
     rpn::item_t __func_compare(
         costage& stage, 
         const rpn::item_t& this_path, 
@@ -448,7 +451,132 @@ namespace coas {
         }
         return rpn::item_t{rpn::IT_VOID, Json::Value(Json::nullValue)};
     }
+    rpn::item_t __func_job(
+        costage& stage, 
+        const rpn::item_t& this_path, 
+        const std::list< rpn::item_t >& args 
+    ) {
+        if ( args.size() != 1 ) {
+            return module_manager::ret_error("missing or invalidate job argument");
+        }
+        const rpn::item_t* _parg = NULL;
+        auto _itarg = args.begin();
+        _parg = &(*_itarg);
+        if ( _parg->type != rpn::IT_STACK ) {
+            return module_manager::ret_error("invalidate argument");
+        }
+        Json::Value _jobValue(Json::objectValue);
+        _jobValue["__stack"] = _parg->value;    // Copy the stack information
+        _jobValue["__type"] = "coas.job";
+        return rpn::item_t{rpn::IT_OBJECT, _jobValue};
+    }
 
+    rpn::item_t __func_condition(
+        costage& stage, 
+        const rpn::item_t& this_path, 
+        const std::list< rpn::item_t >& args 
+    ) {
+        if ( args.size() != 2 ) {
+            return module_manager::ret_error("missing condition argument");
+        }
+        if ( (
+                args.begin()->type != rpn::IT_OBJECT && 
+                args.begin()->type != rpn::IT_NULL
+            ) || args.rbegin()->type != rpn::IT_OBJECT 
+        ) {
+            return module_manager::ret_error("invalidate arguments in condition");
+        }
+        auto& _expr = args.begin()->value;
+        auto& _job = args.rbegin()->value;
+        if ( !_expr.isNull() ) {
+            if ( 
+                !_expr.isMember("__stack") || 
+                !_expr.isMember("__type") || 
+                _expr["__type"].asString() != "coas.job" 
+            ) {
+                return module_manager::ret_error("invalidate expr");
+            }
+        }
+        if ( 
+            !_job.isMember("__stack") || 
+            !_job.isMember("__type") || 
+            _job["__type"].asString() != "coas.job" 
+        ) {
+            return module_manager::ret_error("invalidate job");
+        }
+        Json::Value _condValue(Json::objectValue);
+        _condValue["__expr"] = _expr;
+        _condValue["__job"] = _job;
+        _condValue["__type"] = "coas.cond";
+        return rpn::item_t{rpn::IT_OBJECT, _condValue};
+    }
+    rpn::item_t __func_check(
+        costage& stage, 
+        const rpn::item_t& this_path, 
+        const std::list< rpn::item_t >& args 
+    ) {
+        if ( args.size() != 0 ) {
+            return module_manager::ret_error("too many arguments in check");
+        }
+        Json::Value* _pthis = stage.get_node(this_path.value);
+        if ( _pthis->size() == 0 ) {
+            return module_manager::ret_error("need at least one condition to check");
+        }
+        for ( Json::ArrayIndex i = 0; i < _pthis->size(); ++i ) {
+            Json::Value& _cond = (*_pthis)[i];
+            if ( !_cond.isMember("__type") ) {
+                return module_manager::ret_error("invalidate condition");
+            }
+            if ( _cond["__type"].asString() != "coas.cond" ) {
+                return module_manager::ret_error("invalidate condition type");
+            }
+            if ( !_cond.isMember("__expr") ) {
+                return module_manager::ret_error("missing expr in condition");
+            }
+            if ( !_cond.isMember("__job") ) {
+                return module_manager::ret_error("missing job in condition");
+            }
+            bool _expr_result = false;
+            if ( _cond["__expr"].isNull() ) {
+                if ( i != (_pthis->size() - 1) ) {
+                    return module_manager::ret_error("null expr can only be the last case");
+                }
+                _expr_result = true;
+            } else {
+                Json::Value& _expr = _cond["__expr"];
+                if ( 
+                    !_expr.isMember("__stack") || 
+                    !_expr.isMember("__type") || 
+                    _expr["__type"].asString() != "coas.job" 
+                ) {
+                    return module_manager::ret_error("invalidate expr");
+                }
+                auto _e = stage.invoke_group(_expr["__stack"].asString());
+                if ( _e == E_ASSERT ) return module_manager::ret_error(stage.err_string());
+                if ( _e == E_OK ) return module_manager::ret_error("expr with no boolean return");
+                if ( !stage.returnValue.isBool() ) {
+                    return module_manager::ret_error("exrp's return value is not a boolean");
+                }
+                _expr_result = stage.returnValue.asBool();
+            }
+            // Skip next if exrp check failed
+            if ( _expr_result == false ) continue;
+
+            Json::Value& _job = _cond["__job"];
+            if ( 
+                !_job.isMember("__stack") || 
+                !_job.isMember("__type") || 
+                _job["__type"].asString() != "coas.job" 
+            ) {
+                return module_manager::ret_error("invalidate job");
+            }
+            auto _e = stage.invoke_group(_job["__stack"].asString());
+            if ( _e == E_ASSERT ) return module_manager::ret_error(stage.err_string());
+            if ( _e == E_RETURN ) return module_manager::ret_error("invalidate return in condition's job");
+            break;  // Now we match the condition.
+        }
+        return rpn::item_t{rpn::IT_VOID, Json::Value(Json::nullValue)};
+    }    
     // C'str
     module_manager::module_manager() {
         // nothing
@@ -491,6 +619,18 @@ namespace coas {
         });
         module_manager::register_module(module_type{
             "stderr", &__func_root_match, &__func_stderr
+        });
+        module_manager::register_module(module_type{
+            "expr", &__func_root_match, &__func_job
+        });
+        module_manager::register_module(module_type{
+            "job", &__func_root_match, &__func_job
+        });
+        module_manager::register_module(module_type{
+            "condition", &__func_root_match, &__func_condition
+        });
+        module_manager::register_module(module_type{
+            "check", &__func_array_match, &__func_check
         });
     }
 

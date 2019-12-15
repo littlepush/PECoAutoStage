@@ -1,9 +1,11 @@
-$.void = $.stdout("hello coas")
+$.void = $.stdout("please input a word: ")
 $.myValue = $.stdin()
-$.case[0] = $.condition( 1 == 0, $.job({
+$.case[0] = $.condition( $.expr({
+    $.return = $.myValue == "1"
+}), $.job({
     $.case_job = "job 1 == 0"
-}))
-$.case[1] = $.condition( 1 == 1, $.job({
+}) )
+$.case[1] = $.condition( null, $.job({
     $.case_job = "job 1 == 1"
 }))
 $.void = $.case.check();

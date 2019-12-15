@@ -240,7 +240,7 @@ namespace coas {
         }
 
         // Meet a ')', need to pop until '('
-        if ( op.type == rpn::IT_RIGHT_PARENTHESES ) {
+        if ( op.type == rpn::IT_RIGHT_PARENTHESES || op.type == rpn::IT_COMMA ) {
             while ( 
                 parser_->op.size() != 0 && 
                 parser_->op.top().type != rpn::IT_LEFT_PARENTHESES
@@ -248,12 +248,14 @@ namespace coas {
                 parser_->item.push(parser_->op.top());
                 parser_->op.pop();
             }
-            if ( parser_->op.size() == 0 ) {
-                err_ = "unmatched ')' at index: " + std::to_string(index);
-                return false;
+            if ( op.type == rpn::IT_RIGHT_PARENTHESES ) {
+                if ( parser_->op.size() == 0 ) {
+                    err_ = "unmatched ')' at index: " + std::to_string(index);
+                    return false;
+                }
+                // Remove the '('
+                parser_->op.pop();
             }
-            // Remove the '('
-            parser_->op.pop();
             return true;
         }
 
@@ -323,7 +325,6 @@ namespace coas {
             char c_n = __GET_C_N;
 
             if ( std::isspace(c) ) continue;    // ignore unused space
-            if ( c == ',' ) continue;
             if ( c == ';' && c_n == '\0' ) continue;    // ignore the ';' at the end of line
 
             // Check if last checked char is an op one.
@@ -354,14 +355,17 @@ namespace coas {
                     }
                 }
 
-                // Test if is true of false
-                if ( _c_p != '.' && (c == 't' || c == 'f') ) {
+                // Test if is true of false or null
+                if ( _c_p != '.' && (c == 't' || c == 'f' || c == 'n') ) {
                     char _s[10];
-                    int _r = sscanf(_code.c_str() + i, "%s", _s);
-                    if ( _r != 1 ) {
-                        err_ = "Invalidate word at index: " + std::to_string(i);
-                        return I_SYNTAX;
+                    size_t _i = 0, _si = i;
+                    for ( ; 
+                        (_i < 9) && (_si < _code.size()) && ::isalpha(_code[_si]);
+                        ++_si, ++_i 
+                    ) {
+                        _s[_i] = _code[_si];
                     }
+                    _s[_i] = '\0';
                     std::string _bs(_s);
                     if ( _bs == "true" ) {
                         rpn::item_t _b{rpn::IT_BOOL, Json::Value(true)};
@@ -369,11 +373,14 @@ namespace coas {
                     } else if ( _bs == "false" ) {
                         rpn::item_t _b{rpn::IT_BOOL, Json::Value(false)};
                         parser_->item.push(_b);
+                    } else if ( _bs == "null" ) {
+                        rpn::item_t _n{rpn::IT_NULL, Json::Value(Json::nullValue)};
+                        parser_->item.push(_n);
                     } else {
                         err_ = "invalidate word at index: " + std::to_string(i);
                         return I_SYNTAX;
                     }
-                    i += _r;
+                    i += _i;
                     break;
                 }
 
@@ -392,6 +399,11 @@ namespace coas {
                     parser_->item.push(_i);
                     size_t _l = _pend - (_code.c_str() + i);
                     i += (_l - 1);
+                    break;
+                }
+                if ( c == ',' ) {
+                    rpn::item_t _i{rpn::IT_COMMA, Json::Value(",")};
+                    if ( !operator_parser_(i, _i) ) return I_SYNTAX;
                     break;
                 }
 
@@ -513,7 +525,7 @@ namespace coas {
                         }
                     } else if ( parser_->arglv.find(parser_->plv) != parser_->arglv.end() ) {
                         parser_->arglv.erase(parser_->plv);
-                        rpn::item_t _ea{rpn::IT_EOA, Json::Value(-1)};
+                        rpn::item_t _ea{rpn::IT_EOA, Json::Value(-2)};
                         parser_->item.push(_ea);
                     }
                     break;
@@ -622,6 +634,37 @@ namespace coas {
         std::stack< Json::Value >   _node_stack;
 
         while ( _runtime.size() != 0 ) {
+            // ON_DEBUG(
+            //     rpn::stack_type _druntime(_runtime);
+            //     std::list< std::string > _rlist;
+            //     while ( _druntime.size() != 0 ) {
+            //         std::string _s(_druntime.top().value.toStyledString());
+            //         utils::trim(_s);
+            //         _rlist.emplace_back( std::move(_s) );
+            //         _druntime.pop();
+            //     }
+            //     rpn::stack_type _ddata(_data);
+            //     std::list< std::string > _dlist;
+            //     while ( _ddata.size() != 0 ) {
+            //         std::string _s(_ddata.top().value.toStyledString());
+            //         utils::trim(_s);
+            //         _dlist.push_back( std::move(_s) );
+            //         _ddata.pop();
+            //     }
+            //     std::stack< Json::Value > _dnode(_node_stack);
+            //     std::list< std::string > _nlist;
+            //     while ( _dnode.size() != 0 ) {
+            //         std::string _s(_dnode.top().toStyledString());
+            //         utils::trim(_s);
+            //         _nlist.push_back( std::move(_s) );
+            //         _dnode.pop();
+            //     }
+
+            //     std::cout << "Step: " << std::endl;
+            //     std::cout << "R: " << utils::join(_rlist, ", ") << std::endl;
+            //     std::cout << "D: " << utils::join(_dlist, ", ") << std::endl;
+            //     std::cout << "N: " << utils::join(_nlist, ", ") << std::endl;
+            // )
             rpn::item_t _rpn = _runtime.top();
             _runtime.pop();
 
@@ -1058,7 +1101,8 @@ namespace coas {
                         return E_ASSERT;
                     }
                     if ( _data.top().type != rpn::IT_EOA ) {
-                        err_ = original_code + ", syntax error of function call";
+                        err_ = original_code + ", syntax error of function call <" + 
+                            _rpn.value.asString() + ">";
                         return E_ASSERT;
                     }
                     _data.pop();    // Ignore the EOA
@@ -1086,7 +1130,7 @@ namespace coas {
                     auto _pmodule = module_manager::search_module(
                         _rpn.value.asString(), 
                         *_pthis, 
-                        (_data.top().value.size() == 0)     // Empty node path array means root
+                        (_pthis == &root_)
                     );
                     if ( _pmodule == nullptr ) {
                         err_ = original_code + ", method `" + _rpn.value.asString() + "` not found";
@@ -1133,10 +1177,6 @@ namespace coas {
                 default: break;
             };
         }
-        ON_DEBUG(
-            std::cout << "result after `" << original_code << "`: " << std::endl;
-            std::cout << root_ << std::endl;
-        )
         if ( _data.size() != 0 ) {
             err_ = "unfinished code running";
             return E_ASSERT;
@@ -1167,6 +1207,9 @@ namespace coas {
             break;
         }
         local_stack_.pop();
+        ON_DEBUG(
+            std::cout << root_.toStyledString();
+        )
         return _r;
     }
 

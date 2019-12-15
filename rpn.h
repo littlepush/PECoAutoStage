@@ -79,6 +79,8 @@ namespace coas { namespace rpn {
         IT_LEFT_BRACKETS,           // [
         IT_RIGHT_BRACKETS,          // ]
 
+        IT_COMMA,
+
         // Types
         IT_VOID                     = 10000,
         IT_ERROR,
