@@ -75,6 +75,23 @@ namespace coas {
             exec_ = nullptr;
         }
     }
+    // Create a function, and the following code input for parse is in the function
+    void costage::create_function( const std::string& func_name ) {
+        ptr_group_type _ngroup = std::make_shared< stack_group_type >();
+        code_map_[func_name] = _ngroup;
+        group_stack_.push(func_name);
+
+        // Current Group Switch to the new group
+        group_ = _ngroup;
+        current_group_ = func_name;
+
+        exec_ = nullptr;
+        parser_ = nullptr;
+    }
+    // Mark last function to be end
+    void costage::end_function() {
+        group_leave_();
+    }
 
     // Create a new sub stack and return the name
     // Will create both parser item and code part
@@ -154,7 +171,7 @@ namespace coas {
                 if ( path_value.size() != 2 ) {
                     err_ = "`return` cannot have subpath"; return NULL;
                 }
-                return &return_;
+                return &return_.value;
             } else if ( _keyword == "assert" ) {
                 if ( path_value.size() != 2 ) {
                     err_ = "`assert` cannot have subpath"; return NULL;
@@ -285,20 +302,30 @@ namespace coas {
     }
     // Create an empty stage, default C'str
     costage::costage() : 
-        void_(Json::nullValue), return_(Json::nullValue),
-        group_(nullptr), exec_(nullptr), parser_(nullptr), 
-        result(result_), returnValue(return_), rootValue(root_) 
+        void_(Json::nullValue), return_{rpn::IT_VOID, Json::Value(Json::nullValue)},
+        group_(nullptr), exec_(nullptr), parser_(nullptr)
     {
-        result_.type = rpn::IT_VOID;
     }
     // Create a stage with some root data
     costage::costage(const Json::Value& prepared_root) :
         root_(prepared_root),
-        void_(Json::nullValue), return_(Json::nullValue),
-        group_(nullptr), exec_(nullptr), parser_(nullptr), 
-        result(result_), returnValue(return_), rootValue(root_) 
+        void_(Json::nullValue), return_{rpn::IT_VOID, Json::Value(Json::nullValue)},
+        group_(nullptr), exec_(nullptr), parser_(nullptr)
     {
-        result_.type = rpn::IT_VOID;
+    }
+    // Result Reference
+    const rpn::item_t& costage::resultItem() const {
+        return return_;
+    }
+
+    // Return Value
+    const Json::Value& costage::returnValue() const {
+        return return_.value;
+    }
+
+    // Root Node
+    const Json::Value& costage::rootValue() const {
+        return root_;
     }
 
     costage::~costage() {
@@ -1007,8 +1034,9 @@ namespace coas {
                             err_ = original_code;
                             return E_ASSERT;
                         }
-                    } else if ( _pv2 == &return_ ) {
-                        *_pv2 = _jv1;
+                    } else if ( _pv2 == &return_.value ) {
+                        return_.type = _v1.type;
+                        return_.value = _v1.value;
                         return E_RETURN;
                     }
                     Json::Value &_jv2 = *_pv2;
@@ -1169,8 +1197,9 @@ namespace coas {
         rpn::item_t _l{rpn::IT_OBJECT, Json::Value(Json::objectValue)};
         local_stack_.push(_l);
         for ( auto& _c : (*_pgroup) ) {
-            if ( !return_.isNull() ) {
-                return_ = Json::Value(Json::nullValue);
+            if ( !return_.value.isNull() || return_.type != rpn::IT_VOID ) {
+                return_.type = rpn::IT_VOID;
+                return_.value = Json::Value(Json::nullValue);
             }
             _r = code_line_run_(_c.first, _c.second);
             if ( _r == E_OK ) continue;

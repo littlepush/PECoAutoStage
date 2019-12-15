@@ -1,8 +1,12 @@
+.func do_in_loop
+$.void = $.stdout($.loop_index)
+
+.stage
 $.loop_index = 0
 $.void = $.loop($.expr({
     $.return = $.loop_index < 10
 }), $.job({
-    $.void = $.stdout($.loop_index)
+    $.void = $.invoke("do_in_loop")
 }), $.after({
     $.loop_index = $.loop_index + 1
 }))

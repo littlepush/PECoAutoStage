@@ -96,10 +96,10 @@ namespace coas {
                     // toast the error message
                     if (_e == E_ASSERT) return module_manager::ret_error(stage.err_string());
                     if (_e == E_OK ) return module_manager::ret_error("missing compare result");
-                    if ( stage.returnValue.isBool() == false ) {
+                    if ( stage.returnValue().isBool() == false ) {
                         return module_manager::ret_error("invalidate return type");
                     }
-                    if ( stage.returnValue.asBool() ) _ilast = i;
+                    if ( stage.returnValue().asBool() ) _ilast = i;
                 }
                 rpn::item_t _ret = this_path;
                 _ret.value.append(_ilast);
@@ -126,10 +126,10 @@ namespace coas {
                 // toast the error message
                 if (_e == E_ASSERT) return module_manager::ret_error(stage.err_string());
                 if (_e == E_OK ) return module_manager::ret_error("missing compare result");
-                if ( stage.returnValue.isBool() == false ) {
+                if ( stage.returnValue().isBool() == false ) {
                     return module_manager::ret_error("invalidate return type");
                 }
-                if ( stage.returnValue.asBool() ) _nlast = _i.key().asString();
+                if ( stage.returnValue().asBool() ) _nlast = _i.key().asString();
             }
             rpn::item_t _ret = this_path;
             _ret.value.append(_nlast);
@@ -192,11 +192,11 @@ namespace coas {
                 // toast the error message
                 if (_e == E_ASSERT) return module_manager::ret_error(stage.err_string());
                 if (_e == E_OK ) return module_manager::ret_error("missing compare result");
-                if ( stage.returnValue.isBool() == false ) {
+                if ( stage.returnValue().isBool() == false ) {
                     return module_manager::ret_error("invalidate return type");
                 }
                 // First match
-                if ( stage.returnValue.asBool() ) return _this;
+                if ( stage.returnValue().asBool() ) return _this;
             }
             return rpn::item_t{rpn::IT_NULL, Json::Value(Json::nullValue)};
         } else {
@@ -220,10 +220,10 @@ namespace coas {
                 // toast the error message
                 if (_e == E_ASSERT) return module_manager::ret_error(stage.err_string());
                 if (_e == E_OK ) return module_manager::ret_error("missing compare result");
-                if ( stage.returnValue.isBool() == false ) {
+                if ( stage.returnValue().isBool() == false ) {
                     return module_manager::ret_error("invalidate return type");
                 }
-                if ( stage.returnValue.asBool() ) return _this;
+                if ( stage.returnValue().asBool() ) return _this;
             }
             return rpn::item_t{rpn::IT_NULL, Json::Value(Json::nullValue)};
         }
@@ -325,11 +325,11 @@ namespace coas {
                 // toast the error message
                 if (_e == E_ASSERT) return module_manager::ret_error(stage.err_string());
                 if (_e == E_OK ) return module_manager::ret_error("missing compare result");
-                if ( stage.returnValue.isBool() == false ) {
+                if ( stage.returnValue().isBool() == false ) {
                     return module_manager::ret_error("invalidate return type");
                 }
                 // First match
-                if ( stage.returnValue.asBool() ) {
+                if ( stage.returnValue().asBool() ) {
                     _result.append((*_pthis)[i]);
                 }
             }
@@ -354,11 +354,11 @@ namespace coas {
                 // toast the error message
                 if (_e == E_ASSERT) return module_manager::ret_error(stage.err_string());
                 if (_e == E_OK ) return module_manager::ret_error("missing compare result");
-                if ( stage.returnValue.isBool() == false ) {
+                if ( stage.returnValue().isBool() == false ) {
                     return module_manager::ret_error("invalidate return type");
                 }
                 // First match
-                if ( stage.returnValue.asBool() ) {
+                if ( stage.returnValue().asBool() ) {
                     _result.append(*_i);
                 }
             }
@@ -495,10 +495,10 @@ namespace coas {
         } else {
             _target = _parg->value.asString();
         }
-        Json::Value _jobValue(Json::objectValue);
-        _jobValue["__stack"] = _target;
-        _jobValue["__type"] = "coas.job";
-        return rpn::item_t{rpn::IT_OBJECT, _jobValue};
+        auto _e = stage.invoke_group(_target);
+        if ( _e == E_ASSERT ) return module_manager::ret_error(stage.err_string());
+        if ( _e == E_RETURN ) return stage.resultItem();
+        return rpn::item_t{rpn::IT_VOID, Json::Value(Json::nullValue)};
     }
 
     rpn::item_t __func_condition(
@@ -584,10 +584,10 @@ namespace coas {
                 auto _e = stage.invoke_group(_expr["__stack"].asString());
                 if ( _e == E_ASSERT ) return module_manager::ret_error(stage.err_string());
                 if ( _e == E_OK ) return module_manager::ret_error("expr with no boolean return");
-                if ( !stage.returnValue.isBool() ) {
+                if ( !stage.returnValue().isBool() ) {
                     return module_manager::ret_error("exrp's return value is not a boolean");
                 }
-                _expr_result = stage.returnValue.asBool();
+                _expr_result = stage.returnValue().asBool();
             }
             // Skip next if exrp check failed
             if ( _expr_result == false ) continue;
@@ -667,10 +667,10 @@ namespace coas {
                 auto _e = stage.invoke_group(_expr["__stack"].asString());
                 if ( _e == E_ASSERT ) return module_manager::ret_error(stage.err_string());
                 if ( _e == E_OK ) return module_manager::ret_error("expr must has a return value");
-                if ( !stage.returnValue.isBool() ) {
+                if ( !stage.returnValue().isBool() ) {
                     return module_manager::ret_error("expr must return a boolean value");
                 }
-                _condition = stage.returnValue.asBool();
+                _condition = stage.returnValue().asBool();
             }
             if ( !_condition ) break;
 

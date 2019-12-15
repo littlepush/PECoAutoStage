@@ -79,12 +79,10 @@ namespace coas {
         Json::Value                         root_;
         // The error message
         std::string                         err_;
-        // The last result of a code group
-        rpn::item_t                         result_;
         // Void Item
         Json::Value                         void_;
         // Return Item
-        Json::Value                         return_;
+        rpn::item_t                         return_;
         // Assert Item
         Json::Value                         assert_;
         // Temp Object
@@ -148,13 +146,13 @@ namespace coas {
     public: 
 
         // Result Reference
-        const rpn::item_t&          result;
+        const rpn::item_t&          resultItem() const;
 
         // Return Value
-        const Json::Value&          returnValue;
+        const Json::Value&          returnValue() const;
 
         // Root Node
-        const Json::Value&          rootValue;
+        const Json::Value&          rootValue() const;
 
         // Create an empty stage, default C'str
         costage();
@@ -185,6 +183,11 @@ namespace coas {
         void pop_last();
         // Invoke a sub code group
         E_STATE invoke_group( const std::string& group_name );
+
+        // Create a function, and the following code input for parse is in the function
+        void create_function( const std::string& func_name );
+        // Mark last function to be end
+        void end_function();
     };
 
 }

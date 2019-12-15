@@ -118,6 +118,37 @@ void co_main( int argc, char* argv[] ) {
                 coas::costage _stage;
                 size_t _line = 1;
                 while ( std::getline(_stagef, _code) ) {
+                    utils::trim(_code);
+                    utils::code_filter_comment(_code);
+                    if ( _code.size() == 0 ) continue;
+                    if ( utils::is_string_start(_code, ".func") ) {
+                        if ( _code.size() > 5 && ::isspace(_code[5]) ) {
+                            _code = _code.substr(5);
+                            utils::trim(_code);
+                            // This is a new function
+                            if ( _code.size() == 0 ) {
+                                std::cerr << stage_file << 
+                                    ": assert failed: invalidate function definition" << 
+                                    std::endl;
+                                return;
+                            }
+                            // End last function
+                            _stage.end_function();
+                            // And start a new one
+                            _stage.create_function(_code);
+                            continue;
+                        } else {
+                            std::cerr << stage_file << 
+                                ": assert failed: invalidate function definition" <<
+                                std::endl;
+                            return;
+                        }
+                    } else if ( utils::is_string_start(_code, ".include") ) {
+
+                    } else if ( _code == ".stage" ) {
+                        _stage.end_function();
+                        continue;
+                    }
                     auto _flag = _stage.code_parser( std::move(_code) );
                     if ( _flag == coas::I_SYNTAX ) {
                         std::cerr << stage_file << ":" << _line << ": syntax error: " 
@@ -128,7 +159,7 @@ void co_main( int argc, char* argv[] ) {
                     ++_line;
                 }
                 auto _ret = _stage.code_run();
-                std::cout << "result: " << std::endl << _stage.rootValue.toStyledString();
+                std::cout << "result: " << std::endl << _stage.rootValue().toStyledString();
                 if ( _ret == coas::E_ASSERT ) {
                     std::cerr << stage_file << ": assert failed: " << _stage.err_string() << std::endl;
                 }
