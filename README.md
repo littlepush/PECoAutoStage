@@ -55,7 +55,7 @@ A specifial costage file named `_final.costage` in the folder will be run after 
 
 The root JSON node of `_final.costage` will be like the following:
 
-```json
+```
 {
 	"result": {
 		"stage_file": {
