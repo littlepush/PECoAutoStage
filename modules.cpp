@@ -30,6 +30,7 @@ SOFTWARE.
 */
 
 #include <cotask.h>
+#include <conet.h>
 using namespace pe::co;
 
 #include "modules.h"
@@ -45,6 +46,31 @@ namespace coas {
     }
     bool __func_array_match(const Json::Value& invoker, bool is_root) {
         return invoker.isArray();
+    }
+    bool __func_object_match(const Json::Value& invoker, bool is_root) {
+        return invoker.isObject();
+    }
+    bool __func_string_match(const Json::Value& invoker, bool is_root) {
+        return invoker.isString();
+    }
+
+    bool __func_job_match(const Json::Value& invoker, bool is_root) {
+        if ( !invoker.isObject() ) return false;
+        if ( 
+            !invoker.isMember("__stack") || 
+            !invoker.isMember("__type") ||
+            invoker["__type"].asString() != "coas.job"
+        ) return false;
+        return true;
+    }
+    bool __func_http_match(const Json::Value& invoker, bool is_root) {
+        if ( !invoker.isObject() ) return false;
+        if ( 
+            !invoker.isMember("url") ||
+            !invoker.isMember("__type") || 
+            invoker["__type"].asString() != "coas.httpreq"
+        ) return false;
+        return true;
     }
     rpn::item_t __func_compare(
         costage& stage, 
@@ -413,18 +439,19 @@ namespace coas {
         const std::list< rpn::item_t >& args 
     ) {
         if ( args.size() == 0 ) {
-            return module_manager::ret_error("output nothing");
-        }
-        for ( auto& i : args ) {
-            if ( i.type == rpn::IT_PATH ) {
-                Json::Value* _node = stage.get_node(i.value);
-                if ( _node == NULL ) {
-                    std::cout << "null" << std::endl;
+            std::cout << stage.rootValue().toStyledString();
+        } else {
+            for ( auto& i : args ) {
+                if ( i.type == rpn::IT_PATH ) {
+                    Json::Value* _node = stage.get_node(i.value);
+                    if ( _node == NULL ) {
+                        std::cout << "null" << std::endl;
+                    } else {
+                        std::cout << *_node << std::endl;
+                    }
                 } else {
-                    std::cout << *_node << std::endl;
+                    std::cout << i.value << std::endl;
                 }
-            } else {
-                std::cout << i.value << std::endl;
             }
         }
         return rpn::item_t{rpn::IT_VOID, Json::Value(Json::nullValue)};
@@ -496,6 +523,21 @@ namespace coas {
             _target = _parg->value.asString();
         }
         auto _e = stage.invoke_group(_target);
+        if ( _e == E_ASSERT ) return module_manager::ret_error(stage.err_string());
+        if ( _e == E_RETURN ) return stage.resultItem();
+        return rpn::item_t{rpn::IT_VOID, Json::Value(Json::nullValue)};
+    }
+
+    rpn::item_t __func_do(
+        costage& stage, 
+        const rpn::item_t& this_path, 
+        const std::list< rpn::item_t >& args 
+    ) {
+        if ( args.size() != 0 ) {
+            return module_manager::ret_error("too many arguments in do");
+        }
+        Json::Value* _pthis = stage.get_node(this_path.value);
+        auto _e = stage.invoke_group((*_pthis)["__stack"].asString());
         if ( _e == E_ASSERT ) return module_manager::ret_error(stage.err_string());
         if ( _e == E_RETURN ) return stage.resultItem();
         return rpn::item_t{rpn::IT_VOID, Json::Value(Json::nullValue)};
@@ -687,6 +729,131 @@ namespace coas {
         }
         return rpn::item_t{rpn::IT_VOID, Json::Value(Json::nullValue)};
     }
+
+    rpn::item_t __func_httpreq(
+        costage& stage, 
+        const rpn::item_t& this_path, 
+        const std::list< rpn::item_t >& args 
+    ) {
+        if ( args.size() != 1 ) {
+            return module_manager::ret_error("missing url");
+        }
+        auto _it = args.begin();
+        std::string _url;
+        if ( _it->type == rpn::IT_PATH ) {
+            Json::Value* _purl = stage.get_node(_it->value);
+            if ( _purl == NULL ) {
+                return module_manager::ret_error("null url");
+            }
+            if ( !_purl->isString() ) {
+                return module_manager::ret_error("invalidate url format");
+            }
+            _url = _purl->asString();
+        } else if ( _it->type == rpn::IT_STRING ) {
+            _url = _it->value.asString();
+        } else {
+            return module_manager::ret_error("invalidate url type");
+        }
+        // Create the url object
+        net::http_request _req = net::http_request::fromURL(_url);
+        Json::Value _jreq(Json::objectValue);
+        _jreq["url"] = _url;
+        _jreq["method"] = "GET";
+        _jreq["path"] = _req.path();
+        Json::Value _jh(Json::objectValue);
+        for ( auto i = _req.header.begin(); i != _req.header.end(); ++i ) {
+            _jh[i->first] = i->second;
+        }
+        _jreq["header"] = _jh;
+        std::string _body;
+        for ( auto i = _req.body.begin(); i != _req.body.end(); ++i ) {
+            _body += *i;
+        }
+        _jreq["body"] = _body;
+        _jreq["__type"] = "coas.httpreq";
+        return rpn::item_t{rpn::IT_OBJECT, _jreq};
+    }    
+
+    rpn::item_t __func_send(
+        costage& stage, 
+        const rpn::item_t& this_path, 
+        const std::list< rpn::item_t >& args 
+    ) {
+        size_t _timedout = 60000;   // 1 min
+        if ( args.size() > 1 ) {
+            return module_manager::ret_error("too many arguments in http send");
+        }
+        if ( args.size() == 1 ) {
+            auto _tit = args.begin();
+            if ( _tit->type == rpn::IT_NUMBER ) {
+                _timedout = _tit->value.asUInt();
+            } else if ( _tit->type == rpn::IT_PATH ) {
+                Json::Value* _pt = stage.get_node(_tit->value);
+                if ( _pt == NULL ) {
+                    return module_manager::ret_error("null timedout");
+                }
+                if ( !_pt->isNumeric() ) {
+                    return module_manager::ret_error("invalid type of timedout");
+                }
+                _timedout = _pt->asUInt();
+            } else {
+                return module_manager::ret_error("invalidate timedout object");
+            }
+        }
+        Json::Value* _pthis = stage.get_node(this_path.value);
+        net::http_request _req = net::http_request::fromURL((*_pthis)["url"].asString());
+        if ( _pthis->isMember("method") && (*_pthis)["method"].isString() ) {
+            _req.method() = (*_pthis)["method"].asString();
+        }
+        if ( _pthis->isMember("header") && (*_pthis)["header"].isObject() ) {
+            Json::Value &_jh = (*_pthis)["header"];
+            for ( auto i = _jh.begin(); i != _jh.end(); ++i ) {
+                _req.header[i.key().asString()] = i->asString();
+            }
+        }
+        if ( _pthis->isMember("body") && (*_pthis)["body"].isString() ) {
+            std::string _body((*_pthis)["body"].asString());
+            if ( _body.size() > 0 ) {
+                _req.body.append(std::move(_body));
+            }
+        }
+        net::http_response _resp = net::http_connection::send_request(
+            _req, std::chrono::milliseconds(_timedout));
+        if ( _resp.status_code == net::CODE_001 ) {
+            return module_manager::ret_error("request failed, connection failed or timedout");
+        }
+        Json::Value _jresp(Json::objectValue);
+        _jresp["__type"] = "coas.httpresp";
+        _jresp["status_code"] = (int)_resp.status_code;
+        _jresp["message"] = _resp.message;
+        Json::Value _jh(Json::objectValue);
+        for ( auto i = _resp.header.begin(); i != _resp.header.end(); ++i ) {
+            _jh[i->first] = i->second;
+        }
+        _jresp["header"] = _jh;
+        std::string _body;
+        for ( auto i = _resp.body.begin(); i != _resp.body.end(); ++i ) {
+            _body += *i;
+        }
+        _jresp["body"] = _body;
+        return rpn::item_t{rpn::IT_OBJECT, std::move(_jresp)};
+    }
+    rpn::item_t __func_json(
+        costage& stage, 
+        const rpn::item_t& this_path, 
+        const std::list< rpn::item_t >& args 
+    ) {
+        if ( args.size() != 0 ) {
+            return module_manager::ret_error("too many arguments in json");
+        }
+        Json::Value* _pthis = stage.get_node(this_path.value);
+        Json::Value _node;
+        Json::Reader _jreader;
+        if ( !_jreader.parse(_pthis->asString(), _node, false) ) {
+            return module_manager::ret_error(_jreader.getFormattedErrorMessages());
+        }
+        return rpn::item_t{rpn::IT_OBJECT, std::move(_node)};
+    }
     // C'str
     module_manager::module_manager() {
         // nothing
@@ -743,6 +910,9 @@ namespace coas {
             "invoke", &__func_root_match, &__func_invoke
         });
         module_manager::register_module(module_type{
+            "do", &__func_job_match, &__func_do
+        });
+        module_manager::register_module(module_type{
             "condition", &__func_root_match, &__func_condition
         });
         module_manager::register_module(module_type{
@@ -750,6 +920,15 @@ namespace coas {
         });
         module_manager::register_module(module_type{
             "loop", &__func_root_match, &__func_loop
+        });
+        module_manager::register_module(module_type{
+            "httpreq", &__func_root_match, &__func_httpreq
+        });
+        module_manager::register_module(module_type{
+            "send", &__func_http_match, &__func_send
+        });
+        module_manager::register_module(module_type{
+            "json", &__func_string_match, &__func_json
         });
     }
 

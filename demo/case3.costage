@@ -1,5 +1,5 @@
 $.void = $.stdout("please input a word: ")
-$.myValue = $.stdin()
+$.myValue = "1"
 $.case[0] = $.condition( $.expr({
     $.return = $.myValue == "1"
 }), $.job({

@@ -11,3 +11,7 @@ $.void = $.loop($.expr({
     $.loop_index = $.loop_index + 1
 }))
 
+$.github = $.httpreq("https://github.com")
+$.void = $.stdout($.github)
+$.github_result = $.github.send()
+$.void = $.stdout($.github_result)
