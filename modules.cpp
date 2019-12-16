@@ -462,7 +462,7 @@ namespace coas {
         const std::list< rpn::item_t >& args 
     ) {
         if ( args.size() == 0 ) {
-            return module_manager::ret_error("output nothing");
+            std::cerr << stage.rootValue().toStyledString();
         }
         for ( auto& i : args ) {
             if ( i.type == rpn::IT_PATH ) {
