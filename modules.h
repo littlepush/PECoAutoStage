@@ -46,9 +46,13 @@ namespace coas {
 
     typedef std::function< rpn::item_t ( costage&, const rpn::item_t&, const std::list< rpn::item_t >& ) > 
         module_function_t;
+    typedef rpn::item_t(*module_f)(costage&, const rpn::item_t&, const std::list< rpn::item_t >&);
 
     typedef std::function< bool ( const Json::Value&, bool ) > 
         module_match_t;
+    typedef bool(*module_mf)(const Json::Value&, bool);
+
+    typedef std::string(*module_nf)(void);
 
     typedef struct {
         std::string             name;

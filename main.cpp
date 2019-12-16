@@ -40,7 +40,9 @@ using namespace pe::co;
 using namespace coas;
 
 #include <float.h>
+#include <dlfcn.h>
 
+std::list< void * > g_modules;
 int g_return = 0;
 
 std::string __time_format(double t) {
@@ -245,13 +247,50 @@ void co_main( int argc, char* argv[] ) {
     if ( _module_file.size() > 0 ) {
         if ( utils::is_file_existed(_module_file) ) {
             // Load Modules
+            std::string _ml;
+            std::ifstream _mf(_module_file);
+            std::set< std::string > _mn;
+            while ( std::getline(_mf, _ml) ) {
+                utils::trim(_ml);
+                utils::code_filter_comment(_ml);
+                if ( _ml.size() == 0 ) continue;
+                if ( _ml[0] == '#' ) continue;
+                _mn.insert(_ml);
+            }
+            _mf.close();
 
-    // typedef std::function< rpn::item_t ( costage&, const rpn::item_t&, const std::list< rpn::item_t >& ) > 
-    //     module_function_t;
+            for ( auto& m_name : _mn ) {
+                if ( !utils::is_file_existed(m_name) ) continue;
+                void *_hm = dlopen(m_name.c_str(), RTLD_LAZY | RTLD_GLOBAL);
+                if ( !_hm ) {
+                    std::cerr << "WARNING: cannot load module " << m_name << std::endl;
+                    continue;
+                }
+                module_nf _nf = (module_nf)dlsym(_hm, "module_name");
+                if ( !_nf ) {
+                    std::cerr << "WARNING: " << dlerror() << " in " << m_name << std::endl;
+                    dlclose(_hm);
+                    continue;
+                }
+                module_f _jf = (module_f)dlsym(_hm, "module_action");
+                if ( !_jf ) {
+                    std::cerr << "WARNING: " << dlerror() << " in " << m_name << std::endl;
+                    dlclose(_hm);
+                    continue;
+                }
+                module_mf _mf = (module_mf)dlsym(_hm, "module_match");
+                if ( !_mf ) {
+                    std::cerr << "WARNING: " << dlerror() << " in " << m_name << std::endl;
+                    dlclose(_hm);
+                    continue;
+                }
+                // Register the module
+                module_manager::register_module(module_type{
+                    _nf(), _mf, _jf
+                });
 
-    // typedef std::function< bool ( const Json::Value&, bool ) > 
-    //     module_match_t;
-
+                g_modules.push_back(_hm);
+            }
 
         }
     }
@@ -401,5 +440,8 @@ void co_main( int argc, char* argv[] ) {
 int main( int argc, char* argv[] ) {
     loop::main.do_job(std::bind(&co_main, argc, argv));
     loop::main.run();
+    for ( void *_m : g_modules ) {
+        dlclose(_m);
+    }
     return g_return;
 }
