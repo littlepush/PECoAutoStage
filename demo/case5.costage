@@ -14,4 +14,3 @@ $.void = $.loop($.expr({
 $.github = $.httpreq("https://github.com")
 $.void = $.stdout($.github)
 $.github_result = $.github.send()
-$.void = $.stdout($.github_result)

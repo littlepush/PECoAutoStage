@@ -43,6 +43,20 @@ using namespace coas;
 
 int g_return = 0;
 
+std::string __time_format(double t) {
+    ostringstream _os;
+    _os << std::setprecision(3);
+    if ( t <= 1000.f ) {
+        _os << t << "ms";
+    } else if ( t <= 1000000.f ) {
+        _os << (t / 1000) << "s";
+    } else if ( t <= 60000000.f ) {
+        double _seconds = t / 1000000.f;
+        _os << (_seconds / 60.f) << "m" << ((size_t)_seconds % 60u) << "s";
+    }
+    return _os.str();
+}
+
 bool parse_stage_file( 
     const std::string& stage_file,
     std::ifstream& fstage,
@@ -355,7 +369,7 @@ void co_main( int argc, char* argv[] ) {
                 _min_time = _stime;
                 _min_time_stage = i.key().asString();
             }
-            std::cout << i.key().asString() << ", " << std::setprecision(3) << _stime << " ms" << std::endl;
+            std::cout << i.key().asString() << ", " << __time_format(_stime) << std::endl;
         }
         std::cout << 
             "All Stage: " << _stages.size() << std::endl <<
@@ -364,12 +378,12 @@ void co_main( int argc, char* argv[] ) {
             "Available: " << std::setprecision(3) << 
                 ((double)_passed / (double)_stages.size()) * 100.f << "%" << 
                 std::endl <<
-            "Running time: " << this_task::tick() << " ms" << std::endl <<
-            "All stage time: " << _time << "ms" << std::endl <<
+            "Running time: " << __time_format(this_task::tick()) << std::endl <<
+            "All stage time: " << __time_format(_time) << std::endl <<
             "Max stage time: [" << _max_time_stage << "]: " << 
-                std::setprecision(3) << _max_time << " ms" << std::endl <<
+                std::setprecision(3) << __time_format(_max_time) << std::endl <<
             "Min stage time: [" << _min_time_stage << "]: " << 
-                std::setprecision(3) << _min_time << " ms" << std::endl;
+                std::setprecision(3) << __time_format(_min_time) << std::endl;
         if ( _final_stage.size() > 0 ) {
             if ( _root.isNull() ) {
                 _root = Json::Value(Json::objectValue);
