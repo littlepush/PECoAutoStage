@@ -57,18 +57,17 @@ The root JSON node of `_final.costage` will be like the following:
 
 ```
 {
-	"result": {
-		"stage_file": {
+  "result": {
+    "stage_file": {
       "stage": bool,
       "time": double
-		},
+    },
     ...
-	}
+  }
 }
 ```
 
 You can write your own code in `_final.costage` to make a report.
-
 
 
 ## Basic Code Syntax
@@ -530,7 +529,6 @@ Min stage time: [./demo/case3.costage]: 1.58ms
 ## TODO:
 
 * Complete the Document
-* Bug fix in string parse with `\"`
 * add `&&`, `||` operators
 * add `&`, `|`, `&=`, `|=`, `<<`, `<<=`, `>>`, `>>=` operators
 * add `append`,`insert`,`pop`,`push`,`delete` as built-in keyword

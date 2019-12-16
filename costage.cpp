@@ -461,7 +461,7 @@ namespace coas {
                 if ( c == '\"' ) {
                     // Try to get a string until '"'
                     std::string _s;
-                    while ( c_n != '\"' && c_n != '\0' ) {
+                    while ( ( (c == '\\' && c_n == '\"') || c_n != '\"' ) && c_n != '\0' ) {
                         _s += c_n;
                         ++i;
                         c = __GET_C;
@@ -472,6 +472,18 @@ namespace coas {
                         return I_SYNTAX;
                     }
                     ++i;    // Skip '"'
+                    // Format String
+                    size_t _f = _s.find("\\\"");
+                    while ( _f != std::string::npos ) {
+                        _s = _s.replace(_f, 2, "\"");
+                        _f = _s.find("\\\"");
+                    }
+                    _f = _s.find("\\\\");
+                    while ( _f != std::string::npos ) {
+                        _s = _s.replace(_f, 2, "\\");
+                        _f = _s.find("\\\\");
+                    }
+
                     rpn::item_t _i{rpn::IT_STRING, Json::Value(_s)};
                     parser_->item.push(_i);
                     break;
