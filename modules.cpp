@@ -770,6 +770,11 @@ namespace coas {
             _body += *i;
         }
         _jreq["body"] = _body;
+        Json::Value _jp(Json::objectValue);
+        for ( auto i = _req.params.begin(); i != _req.params.end(); ++i ) {
+            _jp[i->first] = i->second;
+        }
+        _jreq["param"] = _jp;
         _jreq["__type"] = "coas.httpreq";
         return rpn::item_t{rpn::IT_OBJECT, _jreq};
     }    
@@ -815,6 +820,12 @@ namespace coas {
             std::string _body((*_pthis)["body"].asString());
             if ( _body.size() > 0 ) {
                 _req.body.append(std::move(_body));
+            }
+        }
+        if ( _pthis->isMember("param") && (*_pthis)["param"].isObject() ) {
+            Json::Value &_jp = (*_pthis)["param"];
+            for ( auto i = _jp.begin(); i != _jp.end(); ++i ) {
+                _req.params[i.key().asString()] = i->asString();
             }
         }
         net::http_response _resp = net::http_connection::send_request(

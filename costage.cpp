@@ -197,13 +197,7 @@ namespace coas {
                 if ( _p->size() <= _index ) {
                     if ( _index == _p->size() ) {
                         // Create a new node
-                        if ( _i == (path_value.size() - 1) ) {
-                            // Already reach end of the path
-                            // Add a null
-                            _p->append(Json::Value(Json::nullValue));
-                        } else {
-                            _p->append(Json::Value(Json::objectValue));
-                        }
+                        _p->append(Json::Value(Json::nullValue));
                     } else {
                         err_ = "`" + _last_node + "` index " + std::to_string(_index) + " is out of range.";
                         return NULL;
@@ -454,6 +448,15 @@ namespace coas {
                         return I_SYNTAX;
                     }
                     rpn::item_t _i{rpn::IT_STRING, Json::Value("$")};
+                    parser_->item.push(_i);
+                    break;
+                }
+                if ( c == '@' ) {
+                    if ( c_n != '.' ) {
+                        err_ = "Invalidate '$' at index: " + std::to_string(i);
+                        return I_SYNTAX;
+                    }
+                    rpn::item_t _i{rpn::IT_STRING, Json::Value("@")};
                     parser_->item.push(_i);
                     break;
                 }
@@ -1094,7 +1097,11 @@ namespace coas {
                     _node_stack.push(_node);
 
                     // Path unfinished
-                    if ( _node.asString() != "$" ) {
+                    if ( 
+                        _node.asString() != "$" && 
+                        _node.asString() != "@" && 
+                        _node.asString() != "_"
+                    ) {
                         break;
                     }
 
