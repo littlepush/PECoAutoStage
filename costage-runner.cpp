@@ -187,6 +187,12 @@ namespace coas {
         )
         if ( _ret == coas::E_ASSERT ) {
             std::cerr << stage_file << ": assert failed: " << stage.err_string() << std::endl;
+            std::cerr << stage_file << ": call stack: " << std::endl;
+            std::string _space;
+            for ( auto& s: stage.call_stack() ) {
+                std::cerr << stage_file << ": - " << _space << s << std::endl;
+                _space += "  ";
+            }
             return false;
         }
         if ( _ret == coas::E_RETURN ) {

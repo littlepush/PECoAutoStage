@@ -104,6 +104,8 @@ namespace coas {
         std::stack< std::string >                       group_stack_;
         // Parser Stack
         std::stack< ptr_parser_type >                   parser_stack_;
+        // Call Stack
+        std::list< std::string >                        call_stack_;
 
         // Current Code Group
         std::string                         current_group_;
@@ -166,6 +168,9 @@ namespace coas {
         // Description
         const std::string           description() const;
         void set_description( const std::string& d );
+
+        // Call stack
+        const std::list< std::string >& call_stack() const;
 
         // Tags
         const std::set< std::string > tags() const;

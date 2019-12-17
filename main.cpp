@@ -314,6 +314,11 @@ void co_main( int argc, char* argv[] ) {
                 _rj["description"] = _stage.description();
                 _rj["state"] = _ret;
                 _rj["time"] = this_task::tick();
+                Json::Value _stack(Json::arrayValue);
+                for ( auto&s : _stage.call_stack() ) {
+                    _stack.append(s);
+                }
+                _rj["stack"] = _stack;
 
                 // If we have final stage defined
                 if ( _final_stage.size() > 0 ) {
