@@ -775,6 +775,7 @@ namespace coas {
             _jp[i->first] = i->second;
         }
         _jreq["param"] = _jp;
+        _jreq["cookie"] = Json::Value(Json::objectValue);
         _jreq["__type"] = "coas.httpreq";
         return rpn::item_t{rpn::IT_OBJECT, _jreq};
     }    
@@ -816,6 +817,14 @@ namespace coas {
                 _req.header[i.key().asString()] = i->asString();
             }
         }
+        if ( _pthis->isMember("cookie") && (*_pthis)["cookie"].isObject() ) {
+            Json::Value &_jc = (*_pthis)["cookie"];
+            std::list< std::string > _lcookie;
+            for ( auto i = _jc.begin(); i != _jc.end(); ++i ) {
+                _lcookie.emplace_back( i.key().asString() + "=" + i->asString());
+            }
+            _req.header["cookie"] = utils::join(_lcookie, "; ");
+        }
         if ( _pthis->isMember("body") && (*_pthis)["body"].isString() ) {
             std::string _body((*_pthis)["body"].asString());
             if ( _body.size() > 0 ) {
@@ -842,6 +851,16 @@ namespace coas {
             _jh[i->first] = i->second;
         }
         _jresp["header"] = _jh;
+        if ( _resp.header.contains("cookie") ) {
+            std::string _c = _resp.header["cookie"];
+            auto _cp = utils::split(_c, "; ");
+            Json::Value _jc(Json::objectValue);
+            for ( auto& c : _cp ) {
+                auto _ckv = utils::split(c, "=");
+                _jc[_ckv[0]] = (_ckv.size() == 2 ? _ckv[1] : "");
+            }
+            _jresp["cookie"] = _jc;
+        }
         std::string _body;
         for ( auto i = _resp.body.begin(); i != _resp.body.end(); ++i ) {
             _body += *i;
@@ -881,6 +900,83 @@ namespace coas {
         }
         return rpn::item_t{rpn::IT_OBJECT, std::move(_node)};
     }
+
+    rpn::item_t __func_jsonstr(
+        costage& stage, 
+        const rpn::item_t& this_path, 
+        const std::list< rpn::item_t >& args 
+    ) {
+        Json::Value* _pthis = stage.get_node(this_path.value);
+        Json::FastWriter _w;
+        return rpn::item_t{rpn::IT_STRING, _w.write(*_pthis)};
+    }
+
+    rpn::item_t __func_sleep(
+        costage& stage, 
+        const rpn::item_t& this_path, 
+        const std::list< rpn::item_t >& args 
+    ) {
+        if ( args.size() != 1 ) {
+            return module_manager::ret_error("sleep need specified time, in milliseconds");
+        }
+        if ( args.begin()->type == rpn::IT_PATH ) {
+            Json::Value* _ptime = stage.get_node(args.begin()->value);
+            if ( _ptime == NULL ) {
+                return module_manager::ret_error("sleep time cannot be null");
+            }
+        } else if ( args.begin()->type == rpn::IT_NUMBER ) {
+            this_task::sleep(std::chrono::milliseconds(args.begin()->value.asUInt()));
+        } else {
+            return module_manager::ret_error("sleep need a number argument");
+        }
+        return rpn::item_t{rpn::IT_VOID, Json::Value(Json::nullValue)};
+    }
+
+    rpn::item_t __func_toInt(
+        costage& stage, 
+        const rpn::item_t& this_path, 
+        const std::list< rpn::item_t >& args 
+    ) {
+        Json::Value* _pthis = stage.get_node(this_path.value);
+        return rpn::item_t{rpn::IT_NUMBER, Json::Value(_pthis->asInt())};
+    }
+
+    rpn::item_t __func_toNumber(
+        costage& stage, 
+        const rpn::item_t& this_path, 
+        const std::list< rpn::item_t >& args 
+    ) {
+        Json::Value* _pthis = stage.get_node(this_path.value);
+        return rpn::item_t{rpn::IT_NUMBER, Json::Value(_pthis->asDouble())};
+    }
+
+    rpn::item_t __func_toDouble(
+        costage& stage, 
+        const rpn::item_t& this_path, 
+        const std::list< rpn::item_t >& args 
+    ) {
+        Json::Value* _pthis = stage.get_node(this_path.value);
+        return rpn::item_t{rpn::IT_NUMBER, Json::Value(_pthis->asDouble())};
+    }
+
+    rpn::item_t __func_toFloat(
+        costage& stage, 
+        const rpn::item_t& this_path, 
+        const std::list< rpn::item_t >& args 
+    ) {
+        Json::Value* _pthis = stage.get_node(this_path.value);
+        return rpn::item_t{rpn::IT_NUMBER, Json::Value(_pthis->asFloat())};
+    }
+
+    rpn::item_t __func_toString(
+        costage& stage, 
+        const rpn::item_t& this_path, 
+        const std::list< rpn::item_t >& args 
+    ) {
+        Json::Value* _pthis = stage.get_node(this_path.value);
+        return rpn::item_t{rpn::IT_NUMBER, Json::Value(_pthis->asString())};
+    }
+
     // C'str
     module_manager::module_manager() {
         // nothing
@@ -956,6 +1052,27 @@ namespace coas {
         });
         module_manager::register_module(module_type{
             "json", &__func_string_match, &__func_json
+        });
+        module_manager::register_module(module_type{
+            "jsonstr", nullptr, &__func_jsonstr
+        });
+        module_manager::register_module(module_type{
+            "sleep", &__func_root_match, &__func_sleep
+        });
+        module_manager::register_module(module_type{
+            "toInt", nullptr, &__func_toInt
+        });
+        module_manager::register_module(module_type{
+            "toNumber", nullptr, &__func_toNumber
+        });
+        module_manager::register_module(module_type{
+            "toDouble", nullptr, &__func_toDouble
+        });
+        module_manager::register_module(module_type{
+            "toFloat", nullptr, &__func_toFloat
+        });
+        module_manager::register_module(module_type{
+            "toString", nullptr, &__func_toString
         });
     }
 
