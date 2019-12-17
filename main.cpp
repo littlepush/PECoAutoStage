@@ -42,6 +42,8 @@ using namespace coas;
 #include <float.h>
 #include <dlfcn.h>
 
+#include "costage-runner.h"
+
 std::list< void * > g_modules;
 int g_return = 0;
 
@@ -59,200 +61,30 @@ std::string __time_format(double t) {
     return _os.str();
 }
 
-bool parse_stage_file( 
-    const std::string& stage_file,
-    std::ifstream& fstage,
-    costage& stage,
-    size_t& lineno,
-    bool module_file
-) {
-    if ( !fstage ) return false;
-    bool _is_in_function = false;
-    bool _already_in_stage = false;
-    bool _is_description = false;
-
-    std::string _description;
-    std::string _code;
-    while ( std::getline(fstage, _code) ) {
-        utils::trim(_code);
-        utils::code_filter_comment(_code);
-        ++lineno;
-        if ( _code.size() == 0 ) continue;
-        if ( _code[0] == '.' && _already_in_stage ) {
-            std::cerr << stage_file << ": " << lineno <<
-                ": section cannot be in the middle of stage" <<
-                std::endl;
-            return false;
-        }
-        if ( utils::is_string_start(_code, ".description") ) {
-            if ( _code != ".description" ) {
-                std::cerr << stage_file << ": " << lineno <<
-                    ": description should start from a new line" << 
-                    std::endl;
-                return false;
-            }
-            if ( _description.size() > 0 ) {
-                std::cerr << stage_file << ": " << lineno <<
-                    ": a stage file can only have one description" << 
-                    std::endl;
-                return false;
-            }
-            _is_description = true;
-            continue;
-        }
-        if ( _code[0] == '.' && _is_description ) {
-            _is_description = false;
-            stage.set_description(utils::trim(_description));
-        }
-        if ( _is_description ) {
-            _description += " " + _code;
-            continue;
-        }
-        if ( utils::is_string_start(_code, ".tag") ) {
-            auto _p = utils::split(_code, std::vector<std::string>{" ", "\t"});
-            if ( _p.size() != 2 || _p[0] != ".tag" ) {
-                std::cerr << stage_file << ": " << lineno << 
-                    ": invalidate tag definition" << std::endl;
-                return false;
-            }
-            // Add a new tag
-            stage.add_tag(_p[1]);
-            continue;
-        }
-        if ( utils::is_string_start(_code, ".name") ) {
-            auto _p = utils::split(_code, std::vector<std::string>{" ", "\t"});
-            if ( _p.size() != 2 || _p[0] != ".name" ) {
-                std::cerr << stage_file << ": " << lineno << 
-                    ": invalidate name definition" << std::endl;
-                return false;
-            }
-            if ( stage.name().size() > 0 ) {
-                std::cerr << stage_file << ": " << lineno <<
-                    ": a stage file can only have one name" << 
-                    std::endl;
-                return false;
-            }
-            stage.set_name(_p[1]);
-            continue;
-        }
-        if ( utils::is_string_start(_code, ".func") ) {
-            auto _p = utils::split(_code, std::vector<std::string>{" ", "\t"});
-            if ( _p.size() != 2 || _p[0] != ".func" ) {
-                std::cerr << stage_file << ": " << lineno <<
-                    ": invalidate function definition" << std::endl;
-                return false;
-            }
-            // End last function
-            stage.end_function();
-            // And start a new one
-            stage.create_function(_p[1]);
-            _is_in_function = true;
-            continue;
-        } else if ( utils::is_string_start(_code, ".include") ) {
-            auto _p = utils::split(_code, std::vector<std::string>{" ", "\t"});
-            if ( _p.size() != 2 || _p[0] != ".include" ) {
-                std::cerr << stage_file << ": " << lineno <<
-                    ": assert failed: invalidate include" << 
-                    std::endl;
-                return false;
-            }
-            stage.end_function();
-            std::string _fs = utils::dirname(stage_file) + _p[1];
-            std::ifstream _ifs(_fs);
-            if ( !_ifs ) {
-                std::cerr << stage_file << ": " << lineno <<
-                    ": include file " << _fs << " not found" <<
-                    std::endl;
-                return false;
-            }
-            size_t _lines = 0;
-            if ( !parse_stage_file(_fs, _ifs, stage, _lines, true) ) return false;
-            continue;
-        } else if ( _code == ".stage" ) {
-            stage.end_function();
-            _already_in_stage = true;
-            _is_in_function = false;
-            continue;
-        }
-
-        if ( module_file && (!_is_in_function) ) {
-            std::cerr << stage_file << ": " << lineno << 
-                ": code out of function in a module file" <<
-                std::endl;
-            return false;
-        }
-        auto _flag = stage.code_parser( std::move(_code) );
-        if ( _flag == coas::I_SYNTAX ) {
-            std::cerr << stage_file << ":" << lineno << ": syntax error: " 
-                << stage.err_string() << std::endl;
-            return false;
-        }
-        this_task::yield();
-    }
-    return true;
-}
-
-
-bool run_stage_file( const std::string& stage_file, costage& stage ) {
-    std::ifstream _stagef(stage_file);
-    if ( !_stagef ) return false;
-    size_t _line = 0;
-    if ( !parse_stage_file(stage_file, _stagef, stage, _line, false) ) return false;
-    auto _ret = stage.code_run();
-    ON_DEBUG(
-        std::cerr << stage_file << ", result: " << std::endl << stage.rootValue().toStyledString();
-    )
-    if ( _ret == coas::E_ASSERT ) {
-        std::cerr << stage_file << ": assert failed: " << stage.err_string() << std::endl;
-        return false;
-    }
-    if ( _ret == coas::E_RETURN ) {
-        if ( stage.resultItem().type == rpn::IT_PATH ) {
-            Json::Value* _pret = stage.get_node(stage.returnValue());
-            if ( _pret == NULL ) {
-                std::cerr << stage_file << ": the return path not existed" << std::endl;
-                return false;
-            }
-            if ( _pret->isNull() ) {
-                std::cerr << stage_file << ": WARNING: " <<
-                    "return a null object, should use $.void instead" << 
-                    std::endl;
-                return true;
-            }
-            if ( _pret->isBool() ) {
-                return _pret->asBool();
-            }
-        } else if ( stage.resultItem().type == rpn::IT_VOID ) {
-            std::cerr << stage_file << ": WARNING: " <<
-                "return a void object, should use $.void instead" << 
-                std::endl;
-            return true;
-        } else if ( stage.resultItem().type == rpn::IT_BOOL ) {
-            return stage.returnValue().asBool();
-        } else {
-            std::cerr << stage_file << ": a stage can only return void or bool" << std::endl;
-            return false;
-        }
-    }
-    return true;
-}
-
 void co_main( int argc, char* argv[] ) {
     bool _normal_return = false;
     std::string _module_file;
     std::set< std::vector< std::string > > _taggroup;
-    std::string _environment;
     std::string _root;
     std::string _filter;
+    std::string _report_template;
+    std::string _report_path;
+    std::string _begin_stage;
+    std::string _final_stage;
+    std::string _report_stage;
 
     utils::argparser::set_parser("module_file", "m", _module_file);
     utils::argparser::set_parser("tag", "t", [&_taggroup](std::string&& value) {
         auto _r = utils::split(value, ",");
         _taggroup.insert(std::move(_r));
     });
-    utils::argparser::set_parser("environment", "e", _environment);
     utils::argparser::set_parser("root", "r", _root);
     utils::argparser::set_parser("filter", "f", _filter);
+    utils::argparser::set_parser("report-path", "rp", _report_path);
+    utils::argparser::set_parser("report-template", "rt", _report_template);
+    utils::argparser::set_parser("begin-stage", "bs", _begin_stage);
+    utils::argparser::set_parser("final-stage", "fs", _final_stage);
+    utils::argparser::set_parser("report-stage", "rs", _report_stage);
 
     utils::argparser::set_parser("help", "h", [&_normal_return](std::string&&) {
         std::cout
@@ -265,9 +97,15 @@ void co_main( int argc, char* argv[] ) {
             << std::endl
             << "  -m, --module_file         Load thirdparty syntax module" << std::endl
             << "  -t, --tag                 Run stages match the given tag" << std::endl
-            << "  -e, --environment         Select current running environment" << std::endl
             << "  -r, --root                Initialize the root node according to the file" << std::endl
             << "  -f, --filter              Filte the stages according to the JSON filter" << std::endl
+            << "  -rp, --report-path        Report output folder, will copy the " << std::endl 
+            << "                              report.json to that path, and " << std::endl 
+            << "                              create a report.html" << std::endl
+            << "  -rt, --report-template    Customized report HTML template" << std::endl
+            << "  -bs, --begin-stage        Override the _begin.costage file" << std::endl
+            << "  -fs, --final-stage        Override the _final.costage file" << std::endl
+            << "  -rs, --report-stage       Override the _report.costage file" << std::endl
             << "  -h, --help                Display this message" << std::endl
             << "  -v, --version             Display version number" << std::endl
             << "  --enable-conet-trace      In debug version only, display net log" << std::endl
@@ -367,6 +205,18 @@ void co_main( int argc, char* argv[] ) {
     auto _input = utils::argparser::individual_args();
     if ( _input.size() == 0 ) {
         // Begin Input from STDIN
+        if ( _begin_stage.size() > 0 && utils::is_file_existed(_begin_stage) ) {
+            coas::costage _bs(_rootValue);
+            auto _r = coas::run_stage_file(_begin_stage, _bs);
+            if ( !_r ) {
+                std::cerr << _bs.err_string() << std::endl;
+                g_return = 3;
+                return;
+            }
+            // Copy the root value
+            _rootValue = _bs.rootValue();
+        }
+
         coas::costage _stage(_rootValue);
         std::string _code;
         int _lno = 0;
@@ -393,34 +243,45 @@ void co_main( int argc, char* argv[] ) {
             ++_lno;
             std::cout << "coas(" << _lno << "): ";
         }
+
+        // Run Final if any
+        if ( _final_stage.size() > 0 && utils::is_file_existed(_final_stage) ) {
+            coas::costage _fs(_stage.rootValue());
+            auto _r = coas::run_stage_file(_final_stage, _fs);
+            g_return = (_r ? 3 : 0);
+            return;
+        }
     } else {
         // We get a file or folder as input
         std::set< std::string > _stages;
-        std::string _begin_stage;
-        std::string _final_stage;
-        std::string _result_stage;
         for ( auto& _arg : _input ) {
             if ( utils::is_file_existed(_arg) ) {
                 _stages.insert(_arg);
             } else {
                 utils::rek_scan_dir(
                     _arg, 
-                    [&_stages, &_begin_stage, &_final_stage, &_result_stage](
+                    [&_stages, &_begin_stage, &_final_stage, &_report_stage](
                         const std::string& name, bool is_folder
                     ) {
                         if ( is_folder ) return true;
                         // if ( !is_folder ) _stages.insert(name);
                         if ( utils::extension(name) != "costage" ) return true;
                         if ( utils::filename(name) == "_begin" ) {
-                            _begin_stage = name;
+                            if ( _begin_stage.size() == 0 ) {
+                                _begin_stage = name;
+                            }
                             return true;
                         }
                         if ( utils::filename(name) == "_final" ) {
-                            _final_stage = name;
+                            if ( _final_stage.size() == 0 ) {
+                                _final_stage = name;
+                            }
                             return true;
                         }
-                        if ( utils::filename(name) == "_result" ) {
-                            _result_stage = name;
+                        if ( utils::filename(name) == "_report" ) {
+                            if ( _report_stage.size() == 0 ) {
+                                _report_stage = name;
+                            }
                             return true;
                         }
                         _stages.insert(name);
@@ -511,30 +372,44 @@ void co_main( int argc, char* argv[] ) {
                 std::setprecision(3) << __time_format(_max_time) << std::endl <<
             "Min stage time: [" << _min_time_stage << "]: " << 
                 std::setprecision(3) << __time_format(_min_time) << std::endl;
-        if ( _result_stage.size() > 0 ) {
-            Json::Value _resultValue(Json::objectValue);
-            _resultValue["result"] = _result;
-            _resultValue["passed"] = _passed;
-            _resultValue["failed"] = _failed;
-            _resultValue["all"] = (_passed + _failed);
-            _resultValue["time"] = _time;
-            Json::Value _jmax(Json::objectValue);
-            _jmax["stage"] = _max_time_stage;
-            _jmax["time"] = _max_time;
-            _resultValue["max"] = _jmax;
-            Json::Value _jmin(Json::objectValue);
-            _jmin["stage"] = _min_time_stage;
-            _jmin["time"] = _min_time;
-            _resultValue["min"] = _jmin;
 
+        // Create the result json
+        Json::Value _resultValue(Json::objectValue);
+        _resultValue["result"] = _result;
+        _resultValue["passed"] = _passed;
+        _resultValue["failed"] = _failed;
+        _resultValue["all"] = (_passed + _failed);
+        _resultValue["time"] = _time;
+        Json::Value _jmax(Json::objectValue);
+        _jmax["stage"] = _max_time_stage;
+        _jmax["time"] = _max_time;
+        _resultValue["max"] = _jmax;
+        Json::Value _jmin(Json::objectValue);
+        _jmin["stage"] = _min_time_stage;
+        _jmin["time"] = _min_time;
+        _resultValue["min"] = _jmin;
+
+        if ( _report_stage.size() > 0 ) {
             costage _rstage(_resultValue);
-            bool _ret = run_stage_file(_result_stage, _rstage);
+            bool _ret = run_stage_file(_report_stage, _rstage);
             if ( !_ret ) {
                 g_return = 102; return;
             }
         }
 
-        g_return = ((_failed == 0) ? 0 : 1);
+        // Output the Report
+        if ( _report_path.size() > 0 ) {
+            std::ofstream _rfs(_report_path);
+            _rfs << _resultValue;
+        } else {
+            std::ofstream _rfs("./report.json");
+            _rfs << _resultValue;
+        }
+
+        // TODO: Output the report html template
+
+        // Return Failed Count
+        g_return = _failed;
     }
 }
 

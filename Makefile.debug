@@ -28,7 +28,7 @@ endif
 PECO_AUTO_STAGE_DEFINES = $(EX_DEFINES) -I$(INSTALL_INC_ROOT)/utils -I$(INSTALL_INC_ROOT)/cotask -I$(INSTALL_INC_ROOT)/conet -I./
 PECO_AUTO_STAGE_CFLAGS = $(EX_FLAGS) -lcotaskd -lssl -lresolv -lpeutils -lconetd
 
-PECO_AUTO_STAGE_CPP_FILES = ./main.cpp ./costage.cpp ./modules.cpp
+PECO_AUTO_STAGE_CPP_FILES = ./main.cpp ./costage.cpp ./modules.cpp ./costage-runner.cpp
 PECO_AUTO_STAGE_OBJ_FILES = $(PECO_AUTO_STAGE_CPP_FILES:.cpp=.debug-o)
 
 all : 
