@@ -69,24 +69,77 @@ bool parse_stage_file(
     if ( !fstage ) return false;
     bool _is_in_function = false;
     bool _already_in_stage = false;
+    bool _is_description = false;
+
+    std::string _description;
     std::string _code;
     while ( std::getline(fstage, _code) ) {
         utils::trim(_code);
         utils::code_filter_comment(_code);
         ++lineno;
         if ( _code.size() == 0 ) continue;
-        if ( utils::is_string_start(_code, ".func") ) {
-            if ( _already_in_stage ) {
+        if ( _code[0] == '.' && _already_in_stage ) {
+            std::cerr << stage_file << ": " << lineno <<
+                ": section cannot be in the middle of stage" <<
+                std::endl;
+            return false;
+        }
+        if ( utils::is_string_start(_code, ".description") ) {
+            if ( _code != ".description" ) {
                 std::cerr << stage_file << ": " << lineno <<
-                    ": func cannot be in the middle of stage" <<
+                    ": description should start from a new line" << 
                     std::endl;
                 return false;
             }
-            auto _p = utils::split(_code, std::vector<std::string>{" ", "\t"});
-            if ( _p.size() != 2 && _p[0] != ".func" ) {
+            if ( _description.size() > 0 ) {
                 std::cerr << stage_file << ": " << lineno <<
-                    ": assert failed: invalidate function definition" << 
+                    ": a stage file can only have one description" << 
                     std::endl;
+                return false;
+            }
+            _is_description = true;
+            continue;
+        }
+        if ( _code[0] == '.' && _is_description ) {
+            _is_description = false;
+            stage.set_description(utils::trim(_description));
+        }
+        if ( _is_description ) {
+            _description += " " + _code;
+            continue;
+        }
+        if ( utils::is_string_start(_code, ".tag") ) {
+            auto _p = utils::split(_code, std::vector<std::string>{" ", "\t"});
+            if ( _p.size() != 2 || _p[0] != ".tag" ) {
+                std::cerr << stage_file << ": " << lineno << 
+                    ": invalidate tag definition" << std::endl;
+                return false;
+            }
+            // Add a new tag
+            stage.add_tag(_p[1]);
+            continue;
+        }
+        if ( utils::is_string_start(_code, ".name") ) {
+            auto _p = utils::split(_code, std::vector<std::string>{" ", "\t"});
+            if ( _p.size() != 2 || _p[0] != ".name" ) {
+                std::cerr << stage_file << ": " << lineno << 
+                    ": invalidate name definition" << std::endl;
+                return false;
+            }
+            if ( stage.name().size() > 0 ) {
+                std::cerr << stage_file << ": " << lineno <<
+                    ": a stage file can only have one name" << 
+                    std::endl;
+                return false;
+            }
+            stage.set_name(_p[1]);
+            continue;
+        }
+        if ( utils::is_string_start(_code, ".func") ) {
+            auto _p = utils::split(_code, std::vector<std::string>{" ", "\t"});
+            if ( _p.size() != 2 || _p[0] != ".func" ) {
+                std::cerr << stage_file << ": " << lineno <<
+                    ": invalidate function definition" << std::endl;
                 return false;
             }
             // End last function
@@ -96,14 +149,8 @@ bool parse_stage_file(
             _is_in_function = true;
             continue;
         } else if ( utils::is_string_start(_code, ".include") ) {
-            if ( _already_in_stage ) {
-                std::cerr << stage_file << ": " << lineno <<
-                    ": include cannot be in the middle of stage" <<
-                    std::endl;
-                return false;
-            }
             auto _p = utils::split(_code, std::vector<std::string>{" ", "\t"});
-            if ( _p.size() != 2 && _p[0] != ".include" ) {
+            if ( _p.size() != 2 || _p[0] != ".include" ) {
                 std::cerr << stage_file << ": " << lineno <<
                     ": assert failed: invalidate include" << 
                     std::endl;
@@ -122,13 +169,8 @@ bool parse_stage_file(
             if ( !parse_stage_file(_fs, _ifs, stage, _lines, true) ) return false;
             continue;
         } else if ( _code == ".stage" ) {
-            if ( _already_in_stage ) {
-                std::cerr << stage_file << ": " << lineno <<
-                    ": You can only have one stage in a single stage file" <<
-                    std::endl;
-                return false;
-            }
             stage.end_function();
+            _already_in_stage = true;
             _is_in_function = false;
             continue;
         }
@@ -139,7 +181,6 @@ bool parse_stage_file(
                 std::endl;
             return false;
         }
-        if ( !_is_in_function ) _already_in_stage = true;
         auto _flag = stage.code_parser( std::move(_code) );
         if ( _flag == coas::I_SYNTAX ) {
             std::cerr << stage_file << ":" << lineno << ": syntax error: " 
@@ -159,7 +200,7 @@ bool run_stage_file( const std::string& stage_file, costage& stage ) {
     if ( !parse_stage_file(stage_file, _stagef, stage, _line, false) ) return false;
     auto _ret = stage.code_run();
     ON_DEBUG(
-        std::cout << stage_file << ", result: " << std::endl << stage.rootValue().toStyledString();
+        std::cerr << stage_file << ", result: " << std::endl << stage.rootValue().toStyledString();
     )
     if ( _ret == coas::E_ASSERT ) {
         std::cerr << stage_file << ": assert failed: " << stage.err_string() << std::endl;
@@ -199,7 +240,20 @@ bool run_stage_file( const std::string& stage_file, costage& stage ) {
 void co_main( int argc, char* argv[] ) {
     bool _normal_return = false;
     std::string _module_file;
+    std::set< std::vector< std::string > > _taggroup;
+    std::string _environment;
+    std::string _root;
+    std::string _filter;
+
     utils::argparser::set_parser("module_file", "m", _module_file);
+    utils::argparser::set_parser("tag", "t", [&_taggroup](std::string&& value) {
+        auto _r = utils::split(value, ",");
+        _taggroup.insert(std::move(_r));
+    });
+    utils::argparser::set_parser("environment", "e", _environment);
+    utils::argparser::set_parser("root", "r", _root);
+    utils::argparser::set_parser("filter", "f", _filter);
+
     utils::argparser::set_parser("help", "h", [&_normal_return](std::string&&) {
         std::cout
             << "Usage: coas [OPTION] <stage_folder>" << std::endl
@@ -210,6 +264,10 @@ void co_main( int argc, char* argv[] ) {
             << "use `$.assert = ...` or `$.return = bool` to tell if a stage success." << std::endl
             << std::endl
             << "  -m, --module_file         Load thirdparty syntax module" << std::endl
+            << "  -t, --tag                 Run stages match the given tag" << std::endl
+            << "  -e, --environment         Select current running environment" << std::endl
+            << "  -r, --root                Initialize the root node according to the file" << std::endl
+            << "  -f, --filter              Filte the stages according to the JSON filter" << std::endl
             << "  -h, --help                Display this message" << std::endl
             << "  -v, --version             Display version number" << std::endl
             << "  --enable-conet-trace      In debug version only, display net log" << std::endl
@@ -295,10 +353,21 @@ void co_main( int argc, char* argv[] ) {
         }
     }
 
+    Json::Value _rootValue = (Json::objectValue);
+    if ( _root.size() > 0 && utils::is_file_existed(_root) ) {
+        Json::Reader _jr;
+        std::ifstream _rf(_root);
+        if ( !_jr.parse(_rf, _rootValue, false) ) {
+            std::cerr << "failed to load root node" << std::endl;
+            g_return = 2;
+            return;
+        }
+    }
+
     auto _input = utils::argparser::individual_args();
     if ( _input.size() == 0 ) {
         // Begin Input from STDIN
-        coas::costage _stage;
+        coas::costage _stage(_rootValue);
         std::string _code;
         int _lno = 0;
         std::cout << "coas(" << _lno << "): ";
@@ -329,13 +398,16 @@ void co_main( int argc, char* argv[] ) {
         std::set< std::string > _stages;
         std::string _begin_stage;
         std::string _final_stage;
+        std::string _result_stage;
         for ( auto& _arg : _input ) {
             if ( utils::is_file_existed(_arg) ) {
                 _stages.insert(_arg);
             } else {
                 utils::rek_scan_dir(
                     _arg, 
-                    [&_stages, &_begin_stage, &_final_stage](const std::string& name, bool is_folder) {
+                    [&_stages, &_begin_stage, &_final_stage, &_result_stage](
+                        const std::string& name, bool is_folder
+                    ) {
                         if ( is_folder ) return true;
                         // if ( !is_folder ) _stages.insert(name);
                         if ( utils::extension(name) != "costage" ) return true;
@@ -347,6 +419,10 @@ void co_main( int argc, char* argv[] ) {
                             _final_stage = name;
                             return true;
                         }
+                        if ( utils::filename(name) == "_result" ) {
+                            _result_stage = name;
+                            return true;
+                        }
                         _stages.insert(name);
                         return true;
                     }
@@ -354,10 +430,10 @@ void co_main( int argc, char* argv[] ) {
             }
         }
         this_task::begin_tick();
-        Json::Value _root(Json::nullValue);
+        Json::Value _root(_rootValue);
         // We do have a begin stage
         if ( _begin_stage.size() > 0 ) {
-            costage _bstage;
+            costage _bstage(_rootValue);
             bool _ret = run_stage_file(_begin_stage, _bstage);
             if ( !_ret ) {
                 g_return = 101; return;
@@ -368,13 +444,25 @@ void co_main( int argc, char* argv[] ) {
         Json::Value _result(Json::objectValue);
         std::shared_ptr< pe::co::condition > _sig(new pe::co::condition);
         for ( auto stage_file : _stages ) {
-            loop::main.do_job([_sig, stage_file, &_root, &_result]() {
+            loop::main.do_job([_sig, stage_file, _final_stage, &_root, &_result]() {
                 this_task::begin_tick();
                 costage _stage(_root);
                 bool _ret = run_stage_file(stage_file, _stage);
                 Json::Value _rj(Json::objectValue);
+                _rj["name"] = _stage.name();
+                _rj["description"] = _stage.description();
                 _rj["state"] = _ret;
                 _rj["time"] = this_task::tick();
+
+                // If we have final stage defined
+                if ( _final_stage.size() > 0 ) {
+                    costage _fstage(_stage.rootValue());
+                    _ret = run_stage_file(_final_stage, _fstage);
+                    _rj["root"] = _fstage.rootValue();
+                } else {
+                    _rj["root"] = _stage.rootValue();
+                }
+
                 _result[stage_file] = _rj;
                 _sig->notify();
             });
@@ -392,10 +480,10 @@ void co_main( int argc, char* argv[] ) {
         for ( auto i = _result.begin(); i != _result.end(); ++i ) {
             bool _state = (*i)["state"].asBool();
             if ( _state == true ) {
-                std::cout << "[" << CLI_GREEN << " PASS " << CLI_NOR << "]: ";
+                std::cerr << "[" << CLI_GREEN << " PASS " << CLI_NOR << "]: ";
                 _passed += 1;
             } else {                
-                std::cout << "[" << CLI_RED << "FAILED" << CLI_NOR << "]: ";
+                std::cerr << "[" << CLI_RED << "FAILED" << CLI_NOR << "]: ";
                 _failed += 1;
             }
             double _stime = (*i)["time"].asDouble();
@@ -408,9 +496,9 @@ void co_main( int argc, char* argv[] ) {
                 _min_time = _stime;
                 _min_time_stage = i.key().asString();
             }
-            std::cout << i.key().asString() << ", " << __time_format(_stime) << std::endl;
+            std::cerr << i.key().asString() << ", " << __time_format(_stime) << std::endl;
         }
-        std::cout << 
+        std::cerr << 
             "All Stage: " << _stages.size() << std::endl <<
             "Passed: " << _passed << std::endl <<
             "Failed: " << _failed << std::endl <<
@@ -423,17 +511,29 @@ void co_main( int argc, char* argv[] ) {
                 std::setprecision(3) << __time_format(_max_time) << std::endl <<
             "Min stage time: [" << _min_time_stage << "]: " << 
                 std::setprecision(3) << __time_format(_min_time) << std::endl;
-        if ( _final_stage.size() > 0 ) {
-            if ( _root.isNull() ) {
-                _root = Json::Value(Json::objectValue);
-            }
-            _root["result"] = _result;
-            costage _fstage(_root);
-            bool _ret = run_stage_file(_final_stage, _fstage);
+        if ( _result_stage.size() > 0 ) {
+            Json::Value _resultValue(Json::objectValue);
+            _resultValue["result"] = _result;
+            _resultValue["passed"] = _passed;
+            _resultValue["failed"] = _failed;
+            _resultValue["all"] = (_passed + _failed);
+            _resultValue["time"] = _time;
+            Json::Value _jmax(Json::objectValue);
+            _jmax["stage"] = _max_time_stage;
+            _jmax["time"] = _max_time;
+            _resultValue["max"] = _jmax;
+            Json::Value _jmin(Json::objectValue);
+            _jmin["stage"] = _min_time_stage;
+            _jmin["time"] = _min_time;
+            _resultValue["min"] = _jmin;
+
+            costage _rstage(_resultValue);
+            bool _ret = run_stage_file(_result_stage, _rstage);
             if ( !_ret ) {
                 g_return = 102; return;
             }
         }
+
         g_return = ((_failed == 0) ? 0 : 1);
     }
 }

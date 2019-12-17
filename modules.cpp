@@ -105,7 +105,7 @@ namespace coas {
                 return _ret;
             } else {
                 int _ilast = 0;
-                for ( Json::ArrayIndex i = 0; i < _pthis->size(); ++i ) {
+                for ( Json::ArrayIndex i = 1; i < _pthis->size(); ++i ) {
                     rpn::item_t _this = this_path;
                     _this.value.append((int)i);
                     rpn::item_t _last = this_path;
@@ -846,7 +846,23 @@ namespace coas {
         for ( auto i = _resp.body.begin(); i != _resp.body.end(); ++i ) {
             _body += *i;
         }
-        _jresp["body"] = _body;
+        if ( _resp.header.contains("content-type") ) {
+            std::string _ct = _resp.header["content-type"];
+            auto _cts = utils::split(_ct, ";");
+            for ( auto& _c : _cts ) {
+                if ( _c == "application/json" ) {
+                    Json::Reader _jr;
+                    Json::Value _broot;
+                    if ( !_jr.parse(_body, _broot) ) {
+                        return module_manager::ret_error("body is invalidate json");
+                    }
+                    _jresp["body"] = _broot;
+                    break;
+                }
+            }
+        } else {
+            _jresp["body"] = _body;
+        }
         return rpn::item_t{rpn::IT_OBJECT, std::move(_jresp)};
     }
     rpn::item_t __func_json(

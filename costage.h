@@ -113,6 +113,11 @@ namespace coas {
         // Current Parser
         ptr_parser_type                     parser_;
 
+        // Information of a stage
+        std::set< std::string >             tags_;
+        std::string                         name_;
+        std::string                         description_;
+
     protected: 
         // Internal navigation
 
@@ -154,6 +159,18 @@ namespace coas {
         // Root Node
         const Json::Value&          rootValue() const;
 
+        // Name
+        const std::string           name() const;
+        void set_name( const std::string& n );
+
+        // Description
+        const std::string           description() const;
+        void set_description( const std::string& d );
+
+        // Tags
+        const std::set< std::string > tags() const;
+        void add_tag( const std::string& t );
+
         // Create an empty stage, default C'str
         costage();
         // Create a stage with some root data
@@ -185,7 +202,7 @@ namespace coas {
         E_STATE invoke_group( const std::string& group_name );
 
         // Create a function, and the following code input for parse is in the function
-        void create_function( const std::string& func_name );
+        bool create_function( const std::string& func_name );
         // Mark last function to be end
         void end_function();
     };

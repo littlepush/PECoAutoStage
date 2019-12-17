@@ -76,7 +76,8 @@ namespace coas {
         }
     }
     // Create a function, and the following code input for parse is in the function
-    void costage::create_function( const std::string& func_name ) {
+    bool costage::create_function( const std::string& func_name ) {
+        if ( code_map_.find(func_name) != code_map_.end() ) return false;
         ptr_group_type _ngroup = std::make_shared< stack_group_type >();
         code_map_[func_name] = _ngroup;
         group_stack_.push(func_name);
@@ -87,6 +88,7 @@ namespace coas {
 
         exec_ = nullptr;
         parser_ = nullptr;
+        return true;
     }
     // Mark last function to be end
     void costage::end_function() {
@@ -321,6 +323,17 @@ namespace coas {
     const Json::Value& costage::rootValue() const {
         return root_;
     }
+    // Name
+    const std::string costage::name() const { return name_; }
+    void costage::set_name( const std::string& n ) { name_ = n; }
+
+    // Description
+    const std::string costage::description() const { return description_; }
+    void costage::set_description( const std::string& d ) { description_ = d; }
+
+    // Tags
+    const std::set< std::string > costage::tags() const { return tags_; }
+    void costage::add_tag( const std::string& t ) { tags_.insert(t); }
 
     costage::~costage() {
         code_clear();
