@@ -434,6 +434,7 @@ void co_main( int argc, char* argv[] ) {
                 g_return = 102; return;
             }
         }
+        g_return = ((_failed == 0) ? 0 : 1);
     }
 }
 
