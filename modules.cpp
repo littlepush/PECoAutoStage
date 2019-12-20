@@ -997,6 +997,7 @@ namespace coas {
             return module_error("request failed, connection failed or timedout");
         }
         double _api_time = this_task::tick();
+        stage.add_exec_log((*_pthis)["url"].asString(), _api_time);
         Json::Value _jresp(Json::objectValue);
         _jresp["__type"] = "coas.httpresp";
         _jresp["time"] = _api_time;

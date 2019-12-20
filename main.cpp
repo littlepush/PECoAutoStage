@@ -267,15 +267,24 @@ void init_report_value(std::shared_ptr< stage_group_t > pgroup, Json::Value& sub
     subReportNode["workspace"] = pgroup->name;
     subReportNode["begin"] = pgroup->begin_stage;
     subReportNode["end"] = pgroup->end_stage;
-    subReportNode["time"] = 0.f;
     subReportNode["state"] = "unknown";
     subReportNode["stages"] = Json::Value(Json::objectValue);
     Json::Value& _jstages = subReportNode["stages"];
     for ( const auto& sf : pgroup->stage_list ) {
+        coas::stage_info_t _sinfo;
+        coas::fetch_stage_info(sf, _sinfo);
+
         Json::Value _node(Json::objectValue);
         _node["file"] = sf;
         _node["state"] = "unknown";
         _node["time"] = 0.f;
+        _node["name"] = _sinfo.name;
+        _node["description"] = _sinfo.description;
+        _node["tags"] = Json::Value(Json::arrayValue);
+        Json::Value& _jtag = _node["tags"];
+        for ( auto& t: _sinfo.tags ) {
+            _jtag.append(t);
+        }
         _jstages[sf] = _node;
     }
     subReportNode["children"] = Json::Value(Json::objectValue);
@@ -286,7 +295,6 @@ void init_report_value(std::shared_ptr< stage_group_t > pgroup, Json::Value& sub
         init_report_value(sg, _jsgnode);
     }
 }
-
 
 void run_single_stage(
     const Json::Value& stage_root, 
@@ -300,6 +308,8 @@ void run_single_stage(
 
     std::shared_ptr< coas::costage > _pstage(nullptr);
     Json::Value _output(Json::objectValue);
+    _output["exec_log"] = Json::Value(Json::arrayValue);
+    Json::Value& _jexec = _output["exec_log"];
 
     do {
         if ( utils::is_file_existed(_sbegin) ) {
@@ -319,6 +329,7 @@ void run_single_stage(
                 _bstage.stack_toJson(_output);
                 break;
             }
+            _bstage.dump_exec_log(_jexec);
             _pstage = std::make_shared<coas::costage>(_bstage.rootValue());
         } else {
             _pstage = std::make_shared<coas::costage>(stage_root);
@@ -339,6 +350,8 @@ void run_single_stage(
             _output["return"] = g_return;
             break;
         }
+        _pstage->dump_exec_log(_jexec);
+
         if ( utils::is_file_existed(_send) ) {
             coas::costage _estage(_pstage->rootValue());
             if ( !coas::parse_stage_file(_send, _estage) ) {
@@ -358,6 +371,7 @@ void run_single_stage(
             }
             _output["root"] = _estage.rootValue();
             _output["return"] = 0;
+            _estage.dump_exec_log(_jexec);
         } else {
             _output["root"] = _pstage->rootValue();
             _output["return"] = 0;
@@ -408,7 +422,7 @@ void run_single_stage(
             }
             _eol = (data.back() == '\n');
         };
-        int _ret = 0;
+        int _ret = 99;
         this_task::begin_tick();
         loop::main.do_job([&_fchild, &_ret]() {
             parent_task::guard _pg;
@@ -445,6 +459,12 @@ void run_single_stage(
             if ( _enode.isMember("return") ) {
                 _ret = _enode["return"].asInt();
             }
+            if ( _enode.isMember("exec_log") ) {
+                report_node["exec_log"] = _enode["exec_log"];
+            }
+        } else {
+            // Crashed
+            _ret = 99;
         }
         if ( _ret == 0 ) {
             report_node["state"] = "passed";
@@ -463,7 +483,7 @@ void run_single_stage(
         } else if ( _ret == ERR_IN_END ) {
             report_node["state"] = "efailed";
         } else {
-            report_node["state"] = "undefined";
+            report_node["state"] = "crashed";
         }
         g_return += 1;
     });
@@ -806,9 +826,29 @@ void co_main( int argc, char* argv[] ) {
         }
 
         Json::Value _reportValue(Json::objectValue);
-        init_report_value(_pStageGroup, _reportValue);
+        _reportValue["time"] = 0.f;
+        _reportValue["date"] = (long long)time(NULL);
+        _reportValue["workpath"] = g_workPath;
+        _reportValue["filter"] = Json::Value(Json::arrayValue);
+        Json::Value& _jfilter = _reportValue["filter"];
+        for ( auto& kv : g_filterMap ) {
+            _jfilter.append(kv.first);
+        }
+        _reportValue["tags"] = Json::Value(Json::arrayValue);
+        Json::Value& _jtags = _reportValue["tags"];
+        for ( auto& tl : g_tagGroup ) {
+            Json::Value _jtg(Json::arrayValue);
+            for ( auto& t : tl ) {
+                _jtg.append(t);
+            }
+            _jtags.append(_jtg);
+        }
+
+        _reportValue["result"] = Json::Value(Json::objectValue);
+        Json::Value& _rootGroup = _reportValue["result"];
+        init_report_value(_pStageGroup, _rootGroup);
         size_t _all_stage_count = stage_count_of_group(_pStageGroup);
-        rek_run_stage(g_rootValue, _reportValue, _pStageGroup);
+        rek_run_stage(g_rootValue, _rootGroup, _pStageGroup);
         size_t _finished = 0;
         this_task::begin_tick();
         if ( !_quiet ) {
@@ -825,7 +865,9 @@ void co_main( int argc, char* argv[] ) {
             // this_task::sleep(std::chrono::seconds(1));
         }
         std::cout << std::endl;
-        rek_end_stage(_reportValue, _pStageGroup);
+        rek_end_stage(_rootGroup, _pStageGroup);
+        double _running_time = this_task::tick();
+        _reportValue["time"] = _running_time;
 
         if ( _print_report ) {
             std::cout << _reportValue;
@@ -850,8 +892,8 @@ void co_main( int argc, char* argv[] ) {
         if ( !_quiet ) {
             // Dump basic stage report
             int _passed = 0, _failed = 0, _unknow = 0;
-            rek_dump_report(_reportValue, _passed, _failed, _unknow);
-            std::cout << "Time Used: " << __time_format(this_task::tick()) << std::endl;
+            rek_dump_report(_rootGroup, _passed, _failed, _unknow);
+            std::cout << "Time Used: " << __time_format(_running_time) << std::endl;
             std::cout << "All Stage: " << _all_stage_count << std::endl;
             std::cout << "Passed: " << _passed << std::endl;
             std::cout << "Failed: " << _failed << std::endl;

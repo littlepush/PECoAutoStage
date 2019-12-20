@@ -97,6 +97,9 @@ namespace coas {
         // Local Storage
         rpn::stack_type                     local_stack_;
 
+        // Exection Log
+        std::vector< std::pair< std::string, double > > exec_log_;
+
         // The main entry group name
         std::string                         entry_group_;
 
@@ -215,6 +218,10 @@ namespace coas {
         void pop_current();
         // Invoke a sub code group
         E_STATE invoke_group( const std::string& group_name );
+
+        // The log of external executions
+        void add_exec_log( const std::string& message, double time_used );
+        void dump_exec_log( Json::Value& node ) const;
 
         // Create a function, and the following code input for parse is in the function
         bool create_function( const std::string& func_name );

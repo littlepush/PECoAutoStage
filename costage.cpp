@@ -1347,6 +1347,20 @@ namespace coas {
     E_STATE costage::invoke_group( const std::string& group_name ) {
         return code_group_run_(group_name);
     }
+
+    // The log of external executions
+    void costage::add_exec_log( const std::string& message, double time_used ) {
+        exec_log_.emplace_back( std::make_pair(message, time_used) );
+    }
+    void costage::dump_exec_log( Json::Value& node ) const {
+        if ( !node.isArray() ) return;
+        for ( const auto& l : exec_log_ ) {
+            Json::Value _jnode(Json::objectValue);
+            _jnode["msg"] = l.first;
+            _jnode["time"] = l.second;
+            node.append(_jnode);
+        }
+    }
 }
 
 // Push Chen
