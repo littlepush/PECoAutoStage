@@ -1,4 +1,4 @@
-DEFINES = --std=c++11 -pthread -Werror -DVERSION=\"1.0.$(shell [[ ! -d .git ]] && echo -n 1; [[ -d .git ]] && git log --pretty=format:\"%h\" | head -n 1 | tr -d '"' | tr -d '\n')\" -Wall -fPIC -O3 -DRELEASE=1
+DEFINES = --std=c++11 -pthread -Werror -DVERSION=\"1.0.$(shell [[ ! -d .git ]] && echo -n 1; [[ -d .git ]] && git log --pretty=format:\"%h\" | head -n 1 | tr -d '"' | tr -d '\n')\" -Wall -fPIC -g -DRELEASE=1
 
 ifeq '$(findstring ;,$(PATH))' ';'
     detected_OS := Windows

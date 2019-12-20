@@ -950,8 +950,41 @@ namespace coas {
             }
             _req.header["cookie"] = utils::join(_lcookie, "; ");
         }
-        if ( _pthis->isMember("body") && (*_pthis)["body"].isString() ) {
-            std::string _body((*_pthis)["body"].asString());
+        if ( _pthis->isMember("body") && _req.method() != "GET" ) {
+            std::string _body;
+            if ( _req.header.contains("Content-Type") ) {
+                std::string _ct = _req.header["Content-Type"];
+                if ( utils::is_string_start(_ct, "appliction/json") ) {
+                    Json::FastWriter _fw;
+                    _body = _fw.write((*_pthis)["body"]);
+                }
+            }
+            if ( _body.size() == 0 ) {
+                if ( (*_pthis)["body"].isString() ) {
+                    _body = (*_pthis)["body"].asString();
+                } else {
+                    std::vector< std::string > _params;
+                    Json::Value& _jb = (*_pthis)["body"];
+                    if ( !_jb.isObject() ) {
+                        Json::FastWriter _fw;
+                        _body = _fw.write((*_pthis)["body"]);
+                    } else {
+                        bool _validate_kv = true;
+                        for ( auto i = _jb.begin(); i != _jb.end(); ++i ) {
+                            if ( i->isString() ) {
+                                _params.emplace_back(i.key().asString() + "=" + i->asString());
+                            } else {
+                                _validate_kv = false;
+                                break;
+                            }
+                        }
+                        if ( !_validate_kv ) {
+                            Json::FastWriter _fw;
+                            _body = _fw.write((*_pthis)["body"]);
+                        }
+                    }
+                }
+            }
             if ( _body.size() > 0 ) {
                 _req.body.append(std::move(_body));
             }

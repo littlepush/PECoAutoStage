@@ -221,13 +221,13 @@ namespace coas {
                 _last_node += (".[" + std::to_string(_index) + "]");
             } else {
                 std::string _node = (*i).asString();
+                if ( !_p->isObject() ) {
+                    // Replace the non-object with a new object
+                    *_p = Json::Value(Json::objectValue);
+                }
                 if ( !_p->isMember(_node) ) {
                     // alwasy add a null
                     (*_p)[_node] = Json::Value(Json::nullValue);
-                }
-                if ( _p->isNull() ) {
-                    // Replace the null object
-                    *_p = Json::Value(Json::objectValue);
                 }
                 _p = &(*_p)[_node];
                 _last_node += ("." + _node);
