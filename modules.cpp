@@ -900,11 +900,6 @@ namespace coas {
             _jh[i->first] = i->second;
         }
         _jreq["header"] = _jh;
-        std::string _body;
-        for ( auto i = _req.body.begin(); i != _req.body.end(); ++i ) {
-            _body += *i;
-        }
-        _jreq["body"] = _body;
         Json::Value _jp(Json::objectValue);
         for ( auto i = _req.params.begin(); i != _req.params.end(); ++i ) {
             _jp[i->first] = i->second;
@@ -954,7 +949,7 @@ namespace coas {
             std::string _body;
             if ( _req.header.contains("Content-Type") ) {
                 std::string _ct = _req.header["Content-Type"];
-                if ( utils::is_string_start(_ct, "appliction/json") ) {
+                if ( utils::is_string_start(_ct, "application/json") ) {
                     Json::FastWriter _fw;
                     _body = _fw.write((*_pthis)["body"]);
                 }
