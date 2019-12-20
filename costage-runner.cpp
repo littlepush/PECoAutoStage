@@ -42,6 +42,56 @@ using namespace coas;
 #include "costage-runner.h"
 
 namespace coas {
+    // Fetch only the header part of a stage file
+    bool fetch_stage_info(const std::string& stage_file, stage_info_t& info) {
+        std::ifstream _fs(stage_file);
+        if ( !_fs ) return false;
+
+        std::string _description;
+        std::string _code;
+        bool _is_in_description = false;
+        bool _is_in_function = false;
+
+        while ( std::getline(_fs, _code) ) {
+            utils::trim(_code);
+            utils::code_filter_comment(_code);
+            if ( _code.size() == 0 ) continue;
+            if ( _code[0] == '.' && _is_in_description ) {
+                // End Description
+                info.description = _description;
+                _is_in_description = false;
+            }
+            if ( _code == ".description" ) {
+                if ( _is_in_description ) return false;
+                _is_in_function = false;
+                _is_in_description = true;
+                continue;
+            }
+            if ( _code == ".stage" ) return true;
+            if ( _code[0] == '.' ) {
+                _is_in_function = false;
+                auto _kv = utils::split(_code, " \t");
+                if ( _kv.size() == 1 ) return false;
+                if ( _kv[0] == ".tag" ) info.tags.insert(_kv[1]);
+                else if ( _kv[0] == ".name" ) {
+                    if ( info.name.size() != 0 ) return false;
+                    info.name = _kv[2];
+                }
+                else if ( _kv[0] == ".func" ) {
+                    _is_in_function = true;
+                }
+            } else {
+                if ( _is_in_description ) {
+                    _description += " " + _code;
+                } else {
+                    if ( !_is_in_function ) return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     bool parse_stage_file( 
         const std::string& stage_file,
         std::ifstream& fstage,
@@ -175,24 +225,20 @@ namespace coas {
         return true;
     }
 
+    // Simply to parse a file
+    bool parse_stage_file(
+        const std::string& stage_file,
+        costage& stage
+    ) {
+        std::ifstream _fs(stage_file);
+        size_t _lineno = 0;
+        return parse_stage_file(stage_file, _fs, stage, _lineno, false);
+    }
 
     bool run_stage_file( const std::string& stage_file, costage& stage ) {
-        std::ifstream _stagef(stage_file);
-        if ( !_stagef ) return false;
-        size_t _line = 0;
-        if ( !parse_stage_file(stage_file, _stagef, stage, _line, false) ) return false;
         auto _ret = stage.code_run();
-        ON_DEBUG(
-            std::cerr << stage_file << ", result: " << std::endl << stage.rootValue().toStyledString();
-        )
         if ( _ret == coas::E_ASSERT ) {
             std::cerr << stage_file << ": assert failed: " << stage.err_string() << std::endl;
-            std::cerr << stage_file << ": call stack: " << std::endl;
-            std::string _space;
-            for ( auto& s: stage.call_stack() ) {
-                std::cerr << stage_file << ": - " << _space << s << std::endl;
-                _space += "  ";
-            }
             return false;
         }
         if ( _ret == coas::E_RETURN ) {

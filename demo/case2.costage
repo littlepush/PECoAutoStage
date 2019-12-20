@@ -1,12 +1,19 @@
+.func max_compare
+$.return = $.this > $.current
+
+.stage
 $.case_array[0] = 1
 $.case_array[1] = 2
 $.case_array[2] = 3
+$.min_compare = $.job({
+    $.return = $.this < $.current
+})
 $.object.key1 = "value1"
 $.object.key2 = "value2"
 $.object.key3.subkey1 = "value-3-1"
 $.object.key4 = $.object.("key" + $.case_array.max()).subkey1
-$.max_value = $.case_array.max()
-$.min_value = $.case_array.min()
+$.max_value = $.case_array.max($.func("max_compare"))
+$.min_value = $.case_array.min($.min_compare)
 $.match_value = $.case_array.fetch({
     $.return = $.this > 2
 })

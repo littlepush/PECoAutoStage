@@ -46,6 +46,12 @@ using namespace coas;
 
 namespace coas {
 
+    struct stage_info_t {
+        std::string                 name;
+        std::string                 description;
+        std::set< std::string >     tags;
+    };
+
     // Parse a single stage file
     bool parse_stage_file( 
         const std::string& stage_file,
@@ -54,6 +60,15 @@ namespace coas {
         size_t& lineno,
         bool module_file
     ); 
+
+    // Simply to parse a file
+    bool parse_stage_file(
+        const std::string& stage_file,
+        costage& stage
+    );
+
+    // Fetch only the header part of a stage file
+    bool fetch_stage_info(const std::string& stage_file, stage_info_t& info);
 
     // Run the stage file
     bool run_stage_file( const std::string& stage_file, costage& stage );

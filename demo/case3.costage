@@ -1,4 +1,3 @@
-$.void = $.stdout("please input a word: ")
 $.myValue = "1"
 $.case[0] = $.condition( $.expr({
     $.return = $.myValue == "1"

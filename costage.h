@@ -92,6 +92,8 @@ namespace coas {
         rpn::stack_type                     this_stack_;
         // Last Keyword
         rpn::stack_type                     last_stack_;
+        // Current Keyword
+        rpn::stack_type                     current_stack_;
         // Local Storage
         rpn::stack_type                     local_stack_;
 
@@ -160,6 +162,7 @@ namespace coas {
 
         // Root Node
         const Json::Value&          rootValue() const;
+        void replace_root(const Json::Value& new_root);
 
         // Name
         const std::string           name() const;
@@ -175,6 +178,11 @@ namespace coas {
         // Tags
         const std::set< std::string > tags() const;
         void add_tag( const std::string& t );
+
+        // Dump self info to json
+        void info_toJson(Json::Value& node) const;
+        // Dump the call stack to json
+        void stack_toJson(Json::Value& node) const;
 
         // Create an empty stage, default C'str
         costage();
@@ -203,6 +211,8 @@ namespace coas {
         void pop_this();
         bool push_last( rpn::item_t&& last_path );
         void pop_last();
+        bool push_current( rpn::item_t&& current_path );
+        void pop_current();
         // Invoke a sub code group
         E_STATE invoke_group( const std::string& group_name );
 

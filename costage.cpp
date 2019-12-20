@@ -164,6 +164,18 @@ namespace coas {
                     _last_path.append(path_value[i]);
                 }
                 return node_by_path_(_last_path);
+            } else if ( _keyword == "current" ) {
+                if ( current_stack_.size() == 0 ) {
+                    err_ = "`current` = 0x0"; return NULL;
+                }
+                if ( current_stack_.top().type != rpn::IT_PATH ) {
+                    err_ = "`current` is not a validate path"; return NULL;
+                }
+                Json::Value _current_path = current_stack_.top().value;
+                for ( Json::ArrayIndex i = 2; i < path_value.size(); ++i ) {
+                    _current_path.append(path_value[i]);
+                }
+                return node_by_path_(_current_path);
             } else if ( _keyword == "void" ) {
                 if ( path_value.size() != 2 ) {
                     err_ = "`void` cannot have subpath"; return NULL;
@@ -323,6 +335,10 @@ namespace coas {
     const Json::Value& costage::rootValue() const {
         return root_;
     }
+    void costage::replace_root(const Json::Value& new_root) {
+        root_ = new_root;
+    }
+
     // Name
     const std::string costage::name() const { return name_; }
     void costage::set_name( const std::string& n ) { name_ = n; }
@@ -337,6 +353,25 @@ namespace coas {
 
     // Call stack
     const std::list< std::string >& costage::call_stack() const { return call_stack_; }
+
+    // Dump self info to json
+    void costage::info_toJson(Json::Value& node) const {
+        node["name"] = name_;
+        node["description"] = description_;
+        node["tags"] = Json::Value(Json::arrayValue);
+        Json::Value& _jtag = node["tags"];
+        for ( auto& t: tags_ ) {
+            _jtag.append(t);
+        }
+    }
+    // Dump the call stack to json
+    void costage::stack_toJson(Json::Value& node) const {
+        node["callstack"] = Json::Value(Json::arrayValue);
+        Json::Value& _jcs = node["callstack"];
+        for ( auto& s : call_stack_) {
+            _jcs.append(s);
+        }
+    }
 
     costage::~costage() {
         code_clear();
@@ -1143,9 +1178,9 @@ namespace coas {
                         return E_ASSERT;
                     }
                     _data.pop();    // Ignore the EOA
-                    std::list< rpn::item_t > _args;
+                    std::vector< rpn::item_t > _args;
                     while ( _data.size() > 1 && _data.top().type != rpn::IT_BOA ) {
-                        _args.push_front(_data.top());
+                        _args.insert(_args.begin(), _data.top());
                         _data.pop();
                     }
                     if ( _data.size() <= 1 ) {
@@ -1292,6 +1327,17 @@ namespace coas {
     }
     void costage::pop_last() {
         if ( last_stack_.size() > 0 ) last_stack_.pop();
+    }
+    bool costage::push_current( rpn::item_t&& current_path ) {
+        if ( current_path.type != rpn::IT_PATH ) {
+            err_ = "push invalidate current path";
+            return false;
+        }
+        current_stack_.push(current_path);
+        return true;
+    }
+    void costage::pop_current() {
+        if ( current_stack_.size() > 0 ) current_stack_.pop();
     }
     // Invoke a sub code group
     E_STATE costage::invoke_group( const std::string& group_name ) {

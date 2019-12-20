@@ -28,4 +28,4 @@ $.hello = "world"
 $.hi = "world"
 $.result = $.hello == $.hi
 $.boolean = false
-$.assert = $.result == $.boolean
+$.assert = $.result != $.boolean
