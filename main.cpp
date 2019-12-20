@@ -545,19 +545,23 @@ void rek_dump_report(Json::Value& report_node, int& p, int& f, int& u) {
             std::string _state = (*i)["state"].asString();
             if ( _state == "passed" ) {
                 std::cout << "[" << CLI_GREEN << "PASSED" << CLI_NOR << "]: " 
-                    << i.key().asString() << std::endl; 
+                    << i.key().asString() << " ";
                 ++p;
             }
             else if ( _state == "unknown" ) {
                 std::cout << "[" << CLI_YELLOW << "UNKNOWN" << CLI_NOR << "]: " 
-                    << i.key().asString() << std::endl; 
+                    << i.key().asString() << " ";
                 ++u;
             }
             else {
                 std::cout << "[" << CLI_RED << "FAILED" << CLI_NOR << "]: " 
-                    << i.key().asString() << std::endl; 
+                    << i.key().asString() << " ";
                 ++f;
             }
+            if ( i->isMember("time") ) {
+                std::cout << "(+" << __time_format((*i)["time"].asDouble()) << ")";
+            }
+            std::cout << std::endl;
         }
     }
     if ( report_node.isMember("children") ) {
@@ -806,6 +810,7 @@ void co_main( int argc, char* argv[] ) {
         size_t _all_stage_count = stage_count_of_group(_pStageGroup);
         rek_run_stage(g_rootValue, _reportValue, _pStageGroup);
         size_t _finished = 0;
+        this_task::begin_tick();
         if ( !_quiet ) {
             std::cout << "\r" << "Stages: (" << _finished << "/" << _all_stage_count << ")";
             std::cout << std::flush;
@@ -846,6 +851,7 @@ void co_main( int argc, char* argv[] ) {
             // Dump basic stage report
             int _passed = 0, _failed = 0, _unknow = 0;
             rek_dump_report(_reportValue, _passed, _failed, _unknow);
+            std::cout << "Time Used: " << __time_format(this_task::tick()) << std::endl;
             std::cout << "All Stage: " << _all_stage_count << std::endl;
             std::cout << "Passed: " << _passed << std::endl;
             std::cout << "Failed: " << _failed << std::endl;
