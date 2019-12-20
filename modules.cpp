@@ -1105,6 +1105,55 @@ namespace coas {
         return module_string(_pthis->asString());
     }
 
+    rpn::item_t __func_toFile(
+        costage& stage, 
+        const rpn::item_t& this_path, 
+        const std::vector< rpn::item_t >& args 
+    ) {
+        if ( args.size() != 1 ) {
+            return module_error("missing file path");
+        }
+        const Json::Value* _ppath = module_unpack_arg(stage, args[0], rpn::IT_STRING);
+        if ( _ppath == NULL ) {
+            return module_error("file path cannot be null");
+        }
+        std::ofstream _of(_ppath->asString());
+        if ( !_of ) {
+            return module_error("cannot open file for writing");
+        }
+        Json::Value* _pthis = stage.get_node(this_path.value);
+        _of << *_pthis;
+        return module_void();
+    }
+
+    rpn::item_t __func_loadFile(
+        costage& stage, 
+        const rpn::item_t& this_path, 
+        const std::vector< rpn::item_t >& args 
+    ) {
+        if ( args.size() != 1 ) {
+            return module_error("missing file path");
+        }
+        const Json::Value* _ppath = module_unpack_arg(stage, args[0], rpn::IT_STRING);
+        if ( _ppath == NULL ) {
+            return module_error("file path cannot be null");
+        }
+        std::ifstream _if(_ppath->asString());
+        if ( !_if ) {
+            return module_error("cannot open file for reading");
+        }
+        Json::Reader _jr;
+        Json::Value _node;
+        try {
+            if ( !_jr.parse(_if, _node) ) {
+                return module_error(_jr.getFormattedErrorMessages());
+            }
+        } catch( ... ) {
+            return module_error("json file parse failed");
+        }
+        return module_object(std::move(_node));
+    }
+
     // C'str
     module_manager::module_manager() {
         // nothing
@@ -1207,6 +1256,12 @@ namespace coas {
         });
         module_manager::register_module(module_type{
             "toString", nullptr, &__func_toString
+        });
+        module_manager::register_module(module_type{
+            "toFile", nullptr, &__func_toFile
+        });
+        module_manager::register_module(module_type{
+            "loadFile", &module_match_root, &__func_loadFile
         });
     }
 
