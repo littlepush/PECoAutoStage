@@ -303,8 +303,8 @@ void run_single_stage(
 ) {
     std::string _dir = utils::dirname(stage_file);
     std::string _fname = utils::filename(stage_file);
-    std::string _sbegin = _dir + _fname + ".begin";
-    std::string _send = _dir + _fname + ".end";
+    std::string _sbegin = _dir + _fname + ".cobegin";
+    std::string _send = _dir + _fname + ".coend";
 
     std::shared_ptr< coas::costage > _pstage(nullptr);
     Json::Value _output(Json::objectValue);
