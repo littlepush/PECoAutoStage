@@ -387,7 +387,7 @@ namespace coas {
     }
 
     // Parse a code line
-    I_STATE costage::code_parser( const std::string& code ) {
+    I_STATE costage::code_parser( const std::string& code, const std::string& file, uint32_t lineno ) {
 
         std::string _code = code;
         #define __GET_C_N   (i == _code.size() - 1) ? '\0' : _code[i + 1]
@@ -398,7 +398,7 @@ namespace coas {
         utils::code_filter_comment(_code);
         if ( _code.size() == 0 ) return I_UNFINISHED;
 
-        stack_create_(_code);
+        stack_create_(file + ":" + std::to_string(lineno) + ":" + _code);
 
         char                    _c_p = '\0';
         for ( size_t i = 0; i < _code.size(); ++i ) {

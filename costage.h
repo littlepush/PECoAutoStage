@@ -197,7 +197,7 @@ namespace coas {
         const std::string& err_string() const;
 
         // Parse a code line
-        I_STATE code_parser( const std::string& code );
+        I_STATE code_parser( const std::string& code, const std::string& file, uint32_t lineno );
         
         // Exec the last parsed RPN object
         E_STATE code_run();

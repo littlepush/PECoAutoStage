@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <!-- Required meta tags -->
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+        <link 
+            rel="stylesheet" 
+            href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" 
+            integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" 
+            crossorigin="anonymous" />
+        <script 
+            src="https://kit.fontawesome.com/ba08a15b99.js" 
+            crossorigin="anonymous"
+            ></script>
+        <title>PEAutoStage Report Template</title>
+    </head>
+    <body class="bg-dark">
+        <div class="wrapper bg-gray">
+            <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+              <a class="navbar-brand" href="#">PECoAutoStage</a>
+              <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+              </button>
+
+              <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                <ul class="nav navbar-nav mr-auto" role="tablist">
+                  <li class="nav-item">
+                    <a class="nav-link active" data-toggle="tab" href="#summary" role="tab" aria-controls="summary" aria-selected="true">Summary <span class="sr-only">(current)</span></a>
+                  </li>
+                  <li class="nav-item">
+                    <a id="nav-passed" class="nav-link" data-toggle="tab" href="#passed" role="tab" aria-controls="passed" aria-selected="false">Passed</a>
+                  </li>
+                  <li class="nav-item">
+                    <a id="nav-failed" class="nav-link" data-toggle="tab" href="#failed" role="tab" aria-controls="failed" aria-selected="false">Failed</a>
+                  </li>
+                  <li class="nav-item">
+                    <a id="nav-unknown" class="nav-link" data-toggle="tab" href="#unknown" role="tab" aria-controls="unknown" aria-selected="false">Unknown</a>
+                  </li>
+                </ul>
+              </div>
+            </nav>
+            <div class="container-fluid bg-gray">
+                <div class="wrapper wrapper-content bg-gray">
+                    <div class="tab-content" id="reportTabContent">
+                        <div class="tab-pane fade show active" id="summary" role="tabpanel" aria-labelledby="summary-tab">
+                            <div class="jumbotron jumbotron-fluid row">
+                              <div class="container">
+                                <h1 class="display-4">Report Summary</h1>
+                                <p class="lead">
+                                    <button type="button" class="btn btn-success">
+                                      Passed <span id="passed_label" class="badge badge-light"></span>
+                                    </button>
+                                    <button type="button" class="btn btn-danger">
+                                      Failed <span id="failed_label" class="badge badge-light"></span>
+                                    </button>
+                                    <button type="button" class="btn btn-warning">
+                                      Unknows <span id="unknow_label" class="badge badge-light"></span>
+                                    </button>
+                                </p>
+                                <hr class="my-4">
+                                <p class="lead">
+                                    Status: <span id="status_label" class="badge"></span>
+                                </p>
+                                <p class="lead">
+                                    Job Start Time: <span id="date_label" class="badge badge-light"></span>
+                                </p>
+                                <p class="lead">
+                                    Time Used: <span id="time_label" class="badge badge-info"></span>
+                                </p>
+                                <p class="lead">
+                                    Work Path: <span id="workpath_label" class="badge badge-light"></span>
+                                </p>
+                                <p class="lead" id="cmd_filters">
+                                    Filiters: 
+                                </p>
+                                <p class="lead" id="cmd_tags">
+                                    Tags: 
+                                </p>
+                              </div>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="passed" role="tabpanel" aria-labelledby="passed-tab">
+                            <div class="jumbotron jumbotron-fluid row">
+                              <div class="container" id="passed-case">
+                                <h1 class="display-4">Passed Cases</h1>
+                                <hr class="my-4">
+                              </div>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="failed" role="tabpanel" aria-labelledby="failed-tab">
+                            <div class="jumbotron jumbotron-fluid row">
+                              <div class="container" id="failed-case">
+                                <h1 class="display-4">Failed Cases</h1>
+                                <hr class="my-4">
+                              </div>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="unknown" role="tabpanel" aria-labelledby="unknown-tab">
+                            <div class="jumbotron jumbotron-fluid row">
+                              <div class="container" id="unknown-case">
+                                <h1 class="display-4">Unknown Cases</h1>
+                                <hr class="my-4">
+                              </div>
+                            </div>
+                        </div>
+                    </div> 
+                </div>
+            </div>
+            <div class="bg-dark">
+                <div class="wrapper wrapper-content container-fluid text-center" style="padding-top: 30px; padding-bottom: 30px">
+                    <div class="text-light">
+                        Report generated by 
+                        <a href="https://github.com/littlepush/PECoAutoStage" class="text-info">PECoAutoStage</a>. The project use a 
+                        <a href="https://github.com/littlepush/PECoAutoStage/blob/master/LICENSE" class="text-info">MIT License</a>
+                    </div>
+                    <div class="text-light">
+                        Click here to 
+                        <a href="https://github.com/littlepush/PECoAutoStage/issues" class="border border-light text-light rounded">&nbsp;Report issue&nbsp;</a>, Contact author: 
+                        <a href="https://twitter.com/littlepush" class="text-light">
+                            <i class="fab fa-twitter"></i>
+                        </a>
+                        <a href="mailto://littlepush@gmail.com" class="text-light">
+                            <i class="fas fa-envelope"></i>
+                        </a>
+                        <a href="https://github.com/littlepush" class="text-light">
+                            <i class="fab fa-github"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </body>
+
+    <script 
+        src="https://code.jquery.com/jquery-3.4.1.slim.min.js" 
+        integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n" 
+        crossorigin="anonymous"
+        ></script>
+    <script 
+        src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" 
+        integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" 
+        crossorigin="anonymous"
+        ></script>
+    <script 
+        src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js" 
+        integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6" 
+        crossorigin="anonymous"
+        ></script>
+    <script language="javascript" type="text/javascript">
+        // https://github.com/caldwell/renderjson
+        // Copyright © 2013-2014 David Caldwell <david@porkrind.org>
+        //
+        // Permission to use, copy, modify, and/or distribute this software for any
+        // purpose with or without fee is hereby granted, provided that the above
+        // copyright notice and this permission notice appear in all copies.
+        //
+        // THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+        // WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+        // MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+        // SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+        // WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+        // OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+        // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+        var module;(module||{}).exports=renderjson=function(){var n=function(){for(var n=[];arguments.length;)n.push(t(s(Array.prototype.shift.call(arguments)),o(Array.prototype.shift.call(arguments))));return n},t=function(){for(var n=Array.prototype.shift.call(arguments),e=0;e<arguments.length;e++)arguments[e].constructor==Array?t.apply(this,[n].concat(arguments[e])):n.appendChild(arguments[e]);return n},e=function(n,t){return n.insertBefore(t,n.firstChild),n},r=function(n){for(var t in n)if(n.hasOwnProperty(t))return!1;return!0},o=function(n){return document.createTextNode(n)},s=function(n){var t=document.createElement("span");return n&&(t.className=n),t},l=function(n,t,e){var r=document.createElement("a");return t&&(r.className=t),r.appendChild(o(n)),r.href="#",r.onclick=function(){return e(),!1},r};function a(i,c,y,f,_,d){var h=y?"":c,p=function(r,a,i,c,y){var _,d=s(c),p=function(){_||t(d.parentNode,_=e(y(),l(u.hide,"disclosure",function(){_.style.display="none",d.style.display="inline"}))),_.style.display="inline",d.style.display="none"};t(d,l(u.show,"disclosure",p),n(c+" syntax",r),l(a,null,p),n(c+" syntax",i));var v=t(s(),o(h.slice(0,-1)),d);return f>0&&p(),v};return null===i?n(null,h,"keyword","null"):void 0===i?n(null,h,"keyword","undefined"):"string"==typeof i&&i.length>_?p('"',i.substr(0,_)+" ...",'"',"string",function(){return t(s("string"),n(null,h,"string",JSON.stringify(i)))}):"object"!=typeof i?n(null,h,typeof i,JSON.stringify(i)):i.constructor==Array?0==i.length?n(null,h,"array syntax","[]"):p("["," ... ","]","array",function(){for(var e=t(s("array"),n("array syntax","[",null,"\n")),r=0;r<i.length;r++)t(e,a(i[r],c+"    ",!1,f-1,_,d),r!=i.length-1?n("syntax",","):[],o("\n"));return t(e,n(null,c,"array syntax","]")),e}):r(i)?n(null,h,"object syntax","{}"):p("{","...","}","object",function(){var e=t(s("object"),n("object syntax","{",null,"\n"));for(var r in i)var l=r;var u=Object.keys(i);for(var y in d&&(u=u.sort()),u){r=u[y];t(e,n(null,c+"    ","key",'"'+r+'"',"object syntax",": "),a(i[r],c+"    ",!0,f-1,_,d),r!=l?n("syntax",","):[],o("\n"))}return t(e,n(null,c,"object syntax","}")),e})}var u=function n(e){var r=t(document.createElement("pre"),a(e,"",!1,n.show_to_level,n.max_string_length,n.sort_objects));return r.className="renderjson",r};return u.set_icons=function(n,t){return u.show=n,u.hide=t,u},u.set_show_to_level=function(n){return u.show_to_level="string"==typeof n&&"all"===n.toLowerCase()?Number.MAX_VALUE:n,u},u.set_max_string_length=function(n){return u.max_string_length="string"==typeof n&&"none"===n.toLowerCase()?Number.MAX_VALUE:n,u},u.set_sort_objects=function(n){return u.sort_objects=n,u},u.set_show_by_default=function(n){return u.show_to_level=n?Number.MAX_VALUE:0,u},u.set_icons("⊕","⊖"),u.set_show_by_default(!1),u.set_sort_objects(!1),u.set_max_string_length("none"),u}(); 
+    </script>
+    <script language="javascript" type="text/javascript">
+        // JavaScript MD5 implementation. 
+        // Compatible with server-side environments like node.js, 
+        // module loaders like RequireJS and all web browsers. 
+        // https://github.com/blueimp/JavaScript-MD5
+        !function(n){"use strict";function d(n,t){var r=(65535&n)+(65535&t);return(n>>16)+(t>>16)+(r>>16)<<16|65535&r}function f(n,t,r,e,o,u){return d(function(n,t){return n<<t|n>>>32-t}(d(d(t,n),d(e,u)),o),r)}function l(n,t,r,e,o,u,c){return f(t&r|~t&e,n,t,o,u,c)}function g(n,t,r,e,o,u,c){return f(t&e|r&~e,n,t,o,u,c)}function v(n,t,r,e,o,u,c){return f(t^r^e,n,t,o,u,c)}function m(n,t,r,e,o,u,c){return f(r^(t|~e),n,t,o,u,c)}function i(n,t){var r,e,o,u,c;n[t>>5]|=128<<t%32,n[14+(t+64>>>9<<4)]=t;var f=1732584193,i=-271733879,a=-1732584194,h=271733878;for(r=0;r<n.length;r+=16)i=m(i=m(i=m(i=m(i=v(i=v(i=v(i=v(i=g(i=g(i=g(i=g(i=l(i=l(i=l(i=l(o=i,a=l(u=a,h=l(c=h,f=l(e=f,i,a,h,n[r],7,-680876936),i,a,n[r+1],12,-389564586),f,i,n[r+2],17,606105819),h,f,n[r+3],22,-1044525330),a=l(a,h=l(h,f=l(f,i,a,h,n[r+4],7,-176418897),i,a,n[r+5],12,1200080426),f,i,n[r+6],17,-1473231341),h,f,n[r+7],22,-45705983),a=l(a,h=l(h,f=l(f,i,a,h,n[r+8],7,1770035416),i,a,n[r+9],12,-1958414417),f,i,n[r+10],17,-42063),h,f,n[r+11],22,-1990404162),a=l(a,h=l(h,f=l(f,i,a,h,n[r+12],7,1804603682),i,a,n[r+13],12,-40341101),f,i,n[r+14],17,-1502002290),h,f,n[r+15],22,1236535329),a=g(a,h=g(h,f=g(f,i,a,h,n[r+1],5,-165796510),i,a,n[r+6],9,-1069501632),f,i,n[r+11],14,643717713),h,f,n[r],20,-373897302),a=g(a,h=g(h,f=g(f,i,a,h,n[r+5],5,-701558691),i,a,n[r+10],9,38016083),f,i,n[r+15],14,-660478335),h,f,n[r+4],20,-405537848),a=g(a,h=g(h,f=g(f,i,a,h,n[r+9],5,568446438),i,a,n[r+14],9,-1019803690),f,i,n[r+3],14,-187363961),h,f,n[r+8],20,1163531501),a=g(a,h=g(h,f=g(f,i,a,h,n[r+13],5,-1444681467),i,a,n[r+2],9,-51403784),f,i,n[r+7],14,1735328473),h,f,n[r+12],20,-1926607734),a=v(a,h=v(h,f=v(f,i,a,h,n[r+5],4,-378558),i,a,n[r+8],11,-2022574463),f,i,n[r+11],16,1839030562),h,f,n[r+14],23,-35309556),a=v(a,h=v(h,f=v(f,i,a,h,n[r+1],4,-1530992060),i,a,n[r+4],11,1272893353),f,i,n[r+7],16,-155497632),h,f,n[r+10],23,-1094730640),a=v(a,h=v(h,f=v(f,i,a,h,n[r+13],4,681279174),i,a,n[r],11,-358537222),f,i,n[r+3],16,-722521979),h,f,n[r+6],23,76029189),a=v(a,h=v(h,f=v(f,i,a,h,n[r+9],4,-640364487),i,a,n[r+12],11,-421815835),f,i,n[r+15],16,530742520),h,f,n[r+2],23,-995338651),a=m(a,h=m(h,f=m(f,i,a,h,n[r],6,-198630844),i,a,n[r+7],10,1126891415),f,i,n[r+14],15,-1416354905),h,f,n[r+5],21,-57434055),a=m(a,h=m(h,f=m(f,i,a,h,n[r+12],6,1700485571),i,a,n[r+3],10,-1894986606),f,i,n[r+10],15,-1051523),h,f,n[r+1],21,-2054922799),a=m(a,h=m(h,f=m(f,i,a,h,n[r+8],6,1873313359),i,a,n[r+15],10,-30611744),f,i,n[r+6],15,-1560198380),h,f,n[r+13],21,1309151649),a=m(a,h=m(h,f=m(f,i,a,h,n[r+4],6,-145523070),i,a,n[r+11],10,-1120210379),f,i,n[r+2],15,718787259),h,f,n[r+9],21,-343485551),f=d(f,e),i=d(i,o),a=d(a,u),h=d(h,c);return[f,i,a,h]}function a(n){var t,r="",e=32*n.length;for(t=0;t<e;t+=8)r+=String.fromCharCode(n[t>>5]>>>t%32&255);return r}function h(n){var t,r=[];for(r[(n.length>>2)-1]=void 0,t=0;t<r.length;t+=1)r[t]=0;var e=8*n.length;for(t=0;t<e;t+=8)r[t>>5]|=(255&n.charCodeAt(t/8))<<t%32;return r}function e(n){var t,r,e="0123456789abcdef",o="";for(r=0;r<n.length;r+=1)t=n.charCodeAt(r),o+=e.charAt(t>>>4&15)+e.charAt(15&t);return o}function r(n){return unescape(encodeURIComponent(n))}function o(n){return function(n){return a(i(h(n),8*n.length))}(r(n))}function u(n,t){return function(n,t){var r,e,o=h(n),u=[],c=[];for(u[15]=c[15]=void 0,16<o.length&&(o=i(o,8*n.length)),r=0;r<16;r+=1)u[r]=909522486^o[r],c[r]=1549556828^o[r];return e=i(u.concat(h(t)),512+8*t.length),a(i(c.concat(e),640))}(r(n),r(t))}function t(n,t,r){return t?r?u(t,n):function(n,t){return e(u(n,t))}(t,n):r?o(n):function(n){return e(o(n))}(n)}"function"==typeof define&&define.amd?define(function(){return t}):"object"==typeof module&&module.exports?module.exports=t:n.md5=t}(this);
+    </script>
+
+    <script>
+        var reportRawData = "$COAS.REPORT.RAW$";
+
+        var reportJson = atob(reportRawData);
+
+        var __timeFormat = function( t ) {
+            if ( t <= 1000 ) return t.toFixed(2).toString() + "ms";
+            if ( t <= 1000000 ) return (t / 1000).toFixed(2).toString() + "s";
+            if ( t <= 60000000 ) {
+                var _s = Math.floor(t / 1000000);
+                var _m = Math.floor(_s / 60);
+                return _m.toString() + "m" + (_s % 60).toString() + "s";
+            }
+            return t.toFixed(2).toString() + "ms";
+        }
+
+        var generate_stage_report = function( space_list, stage ) {
+            var _card = $("<div></div>").addClass('card');
+            var _parent = null;
+            var _state = "info";
+            if ( stage.state == "passed" ) {
+                _card.addClass('alert-success');
+                _parent = $("#passed-case");
+                _state = "success";
+            } else if ( stage.state == "unknown" ) {
+                _card.addClass('alert-warning');
+                _parent = $("#unknown-case");
+                _state = "warning";
+            } else {
+                _card.addClass('alert-danger');
+                _parent = $("#failed-case");
+                _state = "danger";
+            }
+            _card.appendTo(_parent);
+            $("<br />").appendTo(_parent);
+
+            var _nodeName = md5(stage.file);
+
+            // Begin of header
+            var _cardheader = $("<div></div>")
+                .addClass('card-header')
+                .attr("id", _nodeName)
+                .appendTo(_card);
+            var _cardname = $("<h4></h4")
+                .addClass('alert-heading')
+                .attr("data-toggle", "collapse")
+                .attr("data-target", "#" + _nodeName+"_Collapse")
+                .attr("aria-expanded", false)
+                .attr("aria-controls", _nodeName + "_Collapse")
+                .text(stage.name + "(" + stage.file + ")")
+                .appendTo(_cardheader);
+            _cardname.on('click', function() {
+                $($(this).data("target")).collapse("toggle");
+            })
+            if ( stage.description !== undefined && stage.description.length > 0 ) {
+                $("<p></p>").text(stage.description).appendTo(_cardheader);
+            }
+            if ( stage.tags !== undefined && stage.tags.length > 0 ) {
+                var _taglist = $("<p></p>").appendTo(_cardheader);
+                $.each(stage.tags, function(i, el) {
+                    $("<span></span>")
+                        .addClass('badge badge-light')
+                        .attr("style", "margin-right: 5px")
+                        .text(el).appendTo(_taglist);
+                });
+            }
+            var _statelist = $("<p></p>").appendTo(_cardheader);
+            $("<span></span>")
+                .addClass('badge').addClass('badge-' + _state)
+                .attr("style", "margin-right: 5px")
+                .text(stage.state).appendTo(_statelist);
+            $("<span></span>")
+                .addClass('badge').addClass('badge-info')
+                .attr("style", "margin-right: 5px")
+                .text(__timeFormat(stage.time)).appendTo(_statelist);
+            // End of header
+
+            // Begin of body
+            var _collapseContainer = $("<div></div>")
+                .attr("id", _nodeName + "_Collapse")
+                .addClass('collapse')
+                .attr("aria-labelledby", _nodeName)
+                .appendTo(_card);
+            var _cardbody = $("<div></div>").addClass('card-body').appendTo(_collapseContainer);
+
+            // Error
+            if ( stage.error !== undefined && stage.error.length > 0 ) {
+                $("<h5>Error</h5>").addClass('alert-heading').appendTo(_cardbody);
+                $("<samp></samp>").text(stage.error).appendTo(_cardbody);
+                $("<hr>").appendTo(_cardbody);
+            }
+            // Call stack
+            if ( stage.callstack !== undefined && stage.callstack.length > 0 ) {
+                $("<h5>Call Stack</h5>").addClass('alert-heading').appendTo(_cardbody);
+                var _callstackContainer = $("<div></div>").addClass('alert alert-light').appendTo(_cardbody);
+                $.each(stage.callstack, function(i, el) {
+                    $("<samp></samp>").text(el).appendTo(_callstackContainer);
+                    $("<br />").appendTo(_callstackContainer);
+                });
+                $("<hr>").appendTo(_cardbody);
+            }
+            // Begin Path
+            $("<h5>Begins</h5>").addClass('alert-heading').appendTo(_cardbody);
+            var _beginCrumb = $("<ol></ol>").addClass('breadcrumb').appendTo(_cardbody);
+            $("<hr>").appendTo(_cardbody);
+            // End Path
+            $("<h5>Ends</h5>").addClass('alert-heading').appendTo(_cardbody);
+            var _endCrumb = $("<ol></ol>").addClass('breadcrumb').appendTo(_cardbody);
+            $("<hr>").appendTo(_cardbody);
+            $.each(space_list, function(i, el) {
+                var _bitem = $("<li></li>").addClass('breadcrumb-item').appendTo(_beginCrumb);
+                var _eitem = $("<li></li>").addClass('breadcrumb-item').appendTo(_endCrumb);
+                if ( el.begin.length > 0 ) {
+                    _bitem.text(el.name);
+                    if ( el.state === "bsyntax" || el.state === "bfailed" ) {
+                        // Add popover
+                        _bitem.addClass('text-danger');
+                        _bitem.attr("data-container", "body");
+                        _bitem.attr("data-toggle", "popover");
+                        if ( el.state === "bsyntax" ) {
+                            _bitem.attr("title", "Syntax Error");
+                        } else {
+                            _bitem.attr("title", "Assert Failed");
+                        }
+                        _bitem.attr("data-content", el.error);
+                    } else if ( el.state === "unknown" ) {
+                        _bitem.addClass('text-warning');
+                    }
+                } else {
+                    _bitem.text("-");
+                }
+                if ( el.end.length > 0 ) {
+                    _eitem.text(el.name);
+                    if ( el.state === "esyntax" || el.state === "efailed" ) {
+                        // Add popover
+                        _eitem.addClass('text-danger');
+                        _eitem.attr("data-container", "body");
+                        _eitem.attr("data-toggle", "popover");
+                        if ( el.state === "bsyntax" ) {
+                            _eitem.attr("title", "Syntax Error");
+                        } else {
+                            _eitem.attr("title", "Assert Failed");
+                        }
+                        _eitem.attr("data-content", el.error);
+                    } else if ( el.state === "unknown" ) {
+                        _eitem.addClass('text-warning');
+                    }
+                } else {
+                    _eitem.text("-");
+                }
+            });
+            // Console
+            if ( stage.console !== undefined && stage.console.length > 0 ) {
+                $("<h5>Console</h5>").addClass('alert-heading').appendTo(_cardbody);
+                var _consoleContainer = $("<div></div>").addClass('alert alert-light').appendTo(_cardbody);
+                $.each(stage.console, function(i, el) {
+                    $("<samp></samp>").text(el).appendTo(_consoleContainer);
+                    $("<br />").appendTo(_consoleContainer);
+                });
+                $("<hr>").appendTo(_cardbody);
+            }
+            // Exec Log
+            if ( stage.exec_log !== undefined && stage.exec_log.length > 0 ) {
+                $("<h5>Exec Log</h5>").addClass('alert-heading').appendTo(_cardbody);
+                $.each(stage.exec_log, function(i, el) {
+                    var _logline = $("<div></div>")
+                        .addClass('alert alert-light')
+                        .text(el.msg)
+                        .appendTo(_cardbody);
+                    $("<span></span>")
+                        .addClass('badge badge-info')
+                        .attr("style", "margin-left: 5px")
+                        .text("+" + __timeFormat(el.time))
+                        .appendTo(_logline);
+                });
+                $("<hr>").appendTo(_cardbody);
+            }
+            $("<h5>Root JSON</h5>").addClass('alert-heading').appendTo(_cardbody);
+            var _rootContainer = $("<div></div>").addClass('alert alert-light').appendTo(_cardbody);
+            _rootContainer.append(renderjson(stage.root));
+        }
+
+        var rek_scan_report = function( last, workspace ) {
+            last.push({
+                name: workspace.workspace,
+                begin: workspace.begin,
+                end: workspace.end,
+                in_root: workspace.begin_root,
+                state: workspace.state, 
+                error: workspace.error,
+                callstack: workspace.callstack
+            });
+            $.each(workspace.stages, function(k, el) {
+                generate_stage_report( last, el );
+            });
+            $.each(workspace.children, function(k, el) {
+                rek_scan_report( last, el );
+            });
+        }
+
+        $(document).ready(function() {
+            $(".jumbotron").attr("style", "margin-bottom: 0px !important");
+            var gReport = JSON.parse(reportJson);
+            var allStages = gReport.passed + gReport.failed + gReport.unknown;
+
+            if ( gReport.passed === 0 ) {
+                $("#nav-passed").addClass('disabled');
+            }
+            if ( gReport.failed === 0 ) {
+                $("#nav-failed").addClass('disabled');
+            }
+            if ( gReport.unknown === 0 ) {
+                $("#nav-unknown").addClass('disabled');
+            }
+
+            $("#passed_label").text(gReport.passed);
+            $("#failed_label").text(gReport.failed);
+            $("#unknow_label").text(gReport.unknown);
+            $("#date_label").text(new Date(gReport.date * 1000).toLocaleString());
+            $("#time_label").text(__timeFormat(gReport.time));
+            $("#workpath_label").text(gReport.workpath);
+            if ( gReport.filter.length === 0 ) {
+                $("#cmd_filters").append($("<span>NULL</sapn>").addClass('badge badge-light'));
+            } else {
+                $.each(gReport.filter, function(index, el) {
+                    $("#cmd_filters").append($("<span></span>").addClass('badge badge-light').text(el));
+                });
+            }
+            if ( gReport.tags.length === 0 ) {
+                $("#cmd_tags").append($("<span>NULL</sapn>").addClass('badge badge-light'));
+            } else {
+                $.each(gReport.tags, function(index, el) {
+                    $("#cmd_tags").append(
+                        $("<span></span>")
+                        .addClass('badge badge-light')
+                        .text(el.join(","))
+                    );
+                });
+            }
+            if ( gReport.passed === allStages ) {
+                $("#status_label").addClass('badge-success').text("Clear");
+            } else {
+                if ( gReport.failed > 0 ) {
+                    $("#status_label").addClass('badge-danger').text("Failed");
+                } else {
+                    $("#status_label").addClass('badge-warning').text("Unfinished");
+                }
+            }
+
+            console.log(gReport);
+
+            // Now to load all cases' results
+            rek_scan_report( [], gReport.result );
+        });
+    </script>
+</html>    

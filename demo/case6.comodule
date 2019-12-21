@@ -1,0 +1,5 @@
+.func makeRequest
+@.req = $.httpreq("https://github.com/manifest.json")
+@.resp = @.req.send()
+$.resp[$.loop_count] = @.resp.body.json()
+$.assert = ($.resp[$.loop_count].icons.size() >= $.loop_count)

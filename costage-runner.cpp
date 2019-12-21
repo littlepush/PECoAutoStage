@@ -75,7 +75,7 @@ namespace coas {
                 if ( _kv[0] == ".tag" ) info.tags.insert(_kv[1]);
                 else if ( _kv[0] == ".name" ) {
                     if ( info.name.size() != 0 ) return false;
-                    info.name = _kv[2];
+                    info.name = _kv[1];
                 }
                 else if ( _kv[0] == ".func" ) {
                     _is_in_function = true;
@@ -214,7 +214,7 @@ namespace coas {
                     std::endl;
                 return false;
             }
-            auto _flag = stage.code_parser( std::move(_code) );
+            auto _flag = stage.code_parser( _code, stage_file, lineno );
             if ( _flag == coas::I_SYNTAX ) {
                 std::cerr << stage_file << ":" << lineno << ": syntax error: " 
                     << stage.err_string() << std::endl;

@@ -1,0 +1,12 @@
+.name Case6
+.tag http
+.tag failed
+.description
+This is a stage to test call stack and will always failed.
+.include case6.comodule
+
+.stage
+$.loop_count = 0
+$.void = $.loop(null, $.func("makeRequest"), $.after({
+    $.loop_count = $.loop_count + 1
+}))
