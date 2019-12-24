@@ -31,7 +31,7 @@ jobs:
         ls -lh
     - name: Build Utils
       run: |
-        ROOT_PATH=$(pwd)
+        export ROOT_PATH=$(pwd)
         cd PEUtils
         chmod +x ./configure
         ./configure --prefix=${ROOT_PATH}/test_root
@@ -39,26 +39,26 @@ jobs:
         cd -
     - name: Build CoTask
       run: |
-        ROOT_PATH=$(pwd)
+        export ROOT_PATH=$(pwd)
         cd PECoTask
         chmod +x ./configure
-        ./configure --prefix=${ROOT_PATH}/test_root LDFLAGS="$(pwd)/test_root/lib"
+        ./configure --prefix=${ROOT_PATH}/test_root
         make && make install
         cd -
     - name: Build CoNet
       run: |
-        ROOT_PATH=$(pwd)
+        export ROOT_PATH=$(pwd)
         cd PECoNet
         chmod +x ./configure
-        ./configure --prefix=${ROOT_PATH}/test_root LDFLAGS="$(pwd)/test_root/lib"
+        ./configure --prefix=${ROOT_PATH}/test_root
         make && make install
         cd -
     - name: Build CoAS
       run: |
-        ROOT_PATH=$(pwd)
+        export ROOT_PATH=$(pwd)
         cd PECoAutoStage
         chmod +x ./configure
-        ./configure --prefix=${ROOT_PATH}/test_root LDFLAGS="$(pwd)/test_root/lib"
+        ./configure --prefix=${ROOT_PATH}/test_root
         make && make install
         ../test_root/bin/coas ./demo
         [[ $? -eq 1 ]] && { echo Success }
