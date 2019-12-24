@@ -27,8 +27,8 @@ jobs:
       run: mkdir test_root
     - name: Dump Environment
       run: |
-      pwd
-      ls -lh
+        pwd
+        ls -lh
     - name: Build Utils
       run: |
         ROOT_PATH=$(pwd)
