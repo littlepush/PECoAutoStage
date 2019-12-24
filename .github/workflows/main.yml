@@ -25,32 +25,40 @@ jobs:
         path: 'PECoNet'
     - name: Create Temp Root
       run: mkdir test_root
+    - name: Dump Environment
+      run: |
+      pwd
+      ls -lh
     - name: Build Utils
       run: |
+        ROOT_PATH=$(pwd)
         cd PEUtils
         chmod +x ./configure
-        ./configure --prefix=../test_root
+        ./configure --prefix=${ROOT_PATH}/test_root
         make && make install
         cd -
     - name: Build CoTask
       run: |
+        ROOT_PATH=$(pwd)
         cd PECoTask
         chmod +x ./configure
-        ./configure --prefix=../test_root
+        ./configure --prefix=${ROOT_PATH}/test_root
         make && make install
         cd -
     - name: Build CoNet
       run: |
+        ROOT_PATH=$(pwd)
         cd PECoNet
         chmod +x ./configure
-        ./configure --prefix=../test_root
+        ./configure --prefix=${ROOT_PATH}/test_root
         make && make install
         cd -
     - name: Build CoAS
       run: |
+        ROOT_PATH=$(pwd)
         cd PECoAutoStage
         chmod +x ./configure
-        ./configure --prefix=../test_root
+        ./configure --prefix=${ROOT_PATH}/test_root
         make && make install
         ../test_root/bin/coas ./demo
         [[ $? -eq 1 ]] && { echo Success }
