@@ -1,4 +1,4 @@
-name: CI
+name: Build-Test
 
 on: [push]
 
@@ -8,11 +8,50 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v1
-    - name: Build And Install All
+    - uses: actions/checkout@v2
+      with: 
+        path: 'PECoAutoStage'
+    - uses: actions/checkout@v2
+      with:
+        repository: 'littlepush/PEUtils'
+        path: 'PEUtils'
+    - uses: actions/checkout@v2
+      with: 
+        repository: 'littlepush/PECoTask'
+        path: 'PECoTask'
+    - uses: actions/checkout@v2
+      with:
+        repository: 'littlepush/PECoNet'
+        path: 'PECoNet'
+    - name: Create Temp Root
+      run: mkdir test_root
+    - name: Build Utils
       run: |
+        cd PEUtils
         chmod +x ./configure
-        ./configure --prefix=$(pwd)/.actions --enable-install-peco
+        ./configure --prefix=../test_root
         make && make install
-        ./actions/bin/coas ./demo
+        cd -
+    - name: Build CoTask
+      run: |
+        cd PECoTask
+        chmod +x ./configure
+        ./configure --prefix=../test_root
+        make && make install
+        cd -
+    - name: Build CoNet
+      run: |
+        cd PECoNet
+        chmod +x ./configure
+        ./configure --prefix=../test_root
+        make && make install
+        cd -
+    - name: Build CoAS
+      run: |
+        cd PECoAutoStage
+        chmod +x ./configure
+        ./configure --prefix=../test_root
+        make && make install
+        ../test_root/bin/coas ./demo
         [[ $? -eq 1 ]] && { echo Success }
+        cd -
