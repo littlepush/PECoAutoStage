@@ -40,6 +40,8 @@ jobs:
     - name: Build CoTask
       run: |
         ROOT_PATH=$(pwd)
+        echo ${ROOT_PATH}
+        ls ${ROOT_PATH}/test_root/lib/
         cd PECoTask
         chmod +x ./configure
         ./configure --prefix=${ROOT_PATH}/test_root
@@ -48,8 +50,6 @@ jobs:
     - name: Build CoNet
       run: |
         ROOT_PATH=$(pwd)
-        echo ${ROOT_PATH}
-        ls ${ROOT_PATH}/test_root/lib/
         cd PECoNet
         chmod +x ./configure
         ./configure --prefix=${ROOT_PATH}/test_root
