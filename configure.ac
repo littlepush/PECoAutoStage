@@ -47,6 +47,7 @@ AS_IF(
     [AC_MSG_FAILURE([library 'ssl' is required for OpenSSL])]
 )
 AC_CHECK_LIB([z], [gzread], [], [AC_MSG_FAILURE([could not find libz])])
+AC_CHECK_LIB([dl], [dlopen], [], [AC_MSG_FAILURE([libdl missing])])
 
 AC_ARG_ENABLE(
     [install-peco],
