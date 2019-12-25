@@ -79,7 +79,7 @@ function __checkInstall_PECo() {
 }
 
 CPPFLAGS_old=${CPPFLAGS}
-CPPFLAGS="-I/usr/local/include/peutils ${CPPFLAGS}"
+CPPFLAGS="-I/usr/local/include/peutils -I/usr/include/peutils ${CPPFLAGS}"
 LDFLAGS_old=${LDFLAGS}
 LDFLAGS="-L/usr/local/lib ${LDFLAGS}"
 AC_CHECK_LIB([peutils], [PEUtils_Autoconf], [], [
@@ -95,7 +95,7 @@ AC_CHECK_LIB([peutils], [PEUtils_Autoconf], [], [
 ])
 
 CPPFLAGS_old=${CPPFLAGS}
-CPPFLAGS="-I/usr/local/include/pecotask ${CPPFLAGS}"
+CPPFLAGS="-I/usr/local/include/pecotask -I/usr/include/pecotask ${CPPFLAGS}"
 LDFLAGS_old=${LDFLAGS}
 LDFLAGS="-L/usr/local/lib ${LDFLAGS}"
 AC_CHECK_LIB([cotask], [PECoTask_Autoconf], [], [
@@ -111,7 +111,7 @@ AC_CHECK_LIB([cotask], [PECoTask_Autoconf], [], [
 ])
 
 CPPFLAGS_old=${CPPFLAGS}
-CPPFLAGS="-I/usr/local/include/peconet ${CPPFLAGS}"
+CPPFLAGS="-I/usr/local/include/peconet -I/usr/include/peconet ${CPPFLAGS}"
 LDFLAGS_old=${LDFLAGS}
 LDFLAGS="-L/usr/local/lib ${LDFLAGS}"
 AC_CHECK_LIB([conet], [PECoNet_Autoconf], [], [

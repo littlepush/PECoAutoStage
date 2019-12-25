@@ -4599,7 +4599,7 @@ fi
 }
 
 CPPFLAGS_old=${CPPFLAGS}
-CPPFLAGS="-I/usr/local/include/peutils ${CPPFLAGS}"
+CPPFLAGS="-I/usr/local/include/peutils -I/usr/include/peutils ${CPPFLAGS}"
 LDFLAGS_old=${LDFLAGS}
 LDFLAGS="-L/usr/local/lib ${LDFLAGS}"
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for PEUtils_Autoconf in -lpeutils" >&5
@@ -4711,7 +4711,7 @@ fi
 
 
 CPPFLAGS_old=${CPPFLAGS}
-CPPFLAGS="-I/usr/local/include/pecotask ${CPPFLAGS}"
+CPPFLAGS="-I/usr/local/include/pecotask -I/usr/include/pecotask ${CPPFLAGS}"
 LDFLAGS_old=${LDFLAGS}
 LDFLAGS="-L/usr/local/lib ${LDFLAGS}"
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for PECoTask_Autoconf in -lcotask" >&5
@@ -4823,7 +4823,7 @@ fi
 
 
 CPPFLAGS_old=${CPPFLAGS}
-CPPFLAGS="-I/usr/local/include/peconet ${CPPFLAGS}"
+CPPFLAGS="-I/usr/local/include/peconet -I/usr/include/peconet ${CPPFLAGS}"
 LDFLAGS_old=${LDFLAGS}
 LDFLAGS="-L/usr/local/lib ${LDFLAGS}"
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for PECoNet_Autoconf in -lconet" >&5
