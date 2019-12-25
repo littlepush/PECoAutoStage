@@ -208,8 +208,8 @@ namespace coas {
                     err_ = "path node `" + _last_node + "` is not an array.";
                     return NULL;
                 }
-                if ( _p->size() <= _index ) {
-                    if ( _index == _p->size() ) {
+                if ( (int)_p->size() <= _index ) {
+                    if ( _index == (int)_p->size() ) {
                         // Create a new node
                         _p->append(Json::Value(Json::nullValue));
                     } else {

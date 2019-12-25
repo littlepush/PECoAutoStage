@@ -918,7 +918,7 @@ void co_main( int argc, char* argv[] ) {
             g_return = -3;
             return;
         }
-        chdir(_work_dir.c_str());
+        ignore_result(chdir(_work_dir.c_str()));
     }
     // The work path is always "./"
     g_workPath = "./";

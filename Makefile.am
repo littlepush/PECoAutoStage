@@ -5,7 +5,7 @@ AM_CXXFLAGS = \
 	-DSSL_VERSION_1_0=${SSL_VERSION_1_0} \
 	-DSSL_VERSION_1_1=${SSL_VERSION_1_1}
 	
-AM_LDFLAGS = -lssl -lcrypto -pthread
+AM_LDFLAGS = -lssl -lcrypto -pthread -ldl
 
 bin_PROGRAMS = coas
 coas_SOURCES = \
