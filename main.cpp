@@ -44,6 +44,8 @@ using namespace coas;
 
 #include "costage-runner.h"
 
+#include <iomanip>
+
 std::list< void * > g_modules;
 int g_return = 0;
 Json::Value g_rootValue;
