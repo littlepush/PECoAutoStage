@@ -4522,16 +4522,18 @@ fi
 function __install_PECo() {
     mkdir -p .peco-dep
     cd .peco-dep
-    curl -o- -LS "https://github.com/littlepush/$1/archive/master.zip" | tar -xz - -C .
+    curl -o $1.zip -LS "https://github.com/littlepush/$1/archive/master.zip"
+    unzip -u $1.zip
     cd $1-master
     chmod +x ./configure
     ./configure $2 && make && make install
-    [ $? -ne 0 ] && { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+    RET=$?
+    cd ../../
+    rm -rf .peco-dep
+    [ $RET -ne 0 ] && { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "cannot install PECoTask from source
 See \`config.log' for more details" "$LINENO" 5; }
-    cd ../../
-    rm -rf .peco-dep
 }
 
 function __checkInstall_PECo() {

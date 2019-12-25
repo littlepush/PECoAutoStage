@@ -58,13 +58,15 @@ AC_ARG_ENABLE(
 function __install_PECo() {
     mkdir -p .peco-dep
     cd .peco-dep
-    curl -o- -LS "https://github.com/littlepush/$1/archive/master.zip" | tar -xz - -C .
+    curl -o $1.zip -LS "https://github.com/littlepush/$1/archive/master.zip"
+    unzip -u $1.zip
     cd $1-master
     chmod +x ./configure
     ./configure $2 && make && make install
-    [[ $? -ne 0 ]] && AC_MSG_FAILURE([cannot install PECoTask from source])
+    RET=$?
     cd ../../
     rm -rf .peco-dep
+    [[ $RET -ne 0 ]] && AC_MSG_FAILURE([cannot install PECoTask from source])
 }
 
 function __checkInstall_PECo() {
