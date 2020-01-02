@@ -52,7 +52,10 @@ AS_IF([test "x${libssl}" != "x"], [
 ])
 
 AS_IF([test "x${libpeco}" != "x"], [
-    CPPFLAGS="-I${libpeco}/include/peutils ${CPPFLAGS}"
+    CPPFLAGS="-I${libpeco}/include/peutils \
+    -I${libpeco}/include/pecotask \
+    -I${libpeco}/include/peconet \
+    ${CPPFLAGS}"
     LDFLAGS="-L${libpeco}/lib ${LDFLAGS}"
     PECoInstallArgs="${PECoInstallArgs} libpeco=${libpeco}"
 ])

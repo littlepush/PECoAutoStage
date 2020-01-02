@@ -4324,7 +4324,10 @@ fi
 
 if test "x${libpeco}" != "x"; then :
 
-    CPPFLAGS="-I${libpeco}/include/peutils ${CPPFLAGS}"
+    CPPFLAGS="-I${libpeco}/include/peutils \
+    -I${libpeco}/include/pecotask \
+    -I${libpeco}/include/peconet \
+    ${CPPFLAGS}"
     LDFLAGS="-L${libpeco}/lib ${LDFLAGS}"
     PECoInstallArgs="${PECoInstallArgs} libpeco=${libpeco}"
 
