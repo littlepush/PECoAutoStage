@@ -105,6 +105,7 @@ function __checkInstall_PECo() {
     )
 }
 
+AC_LANG_PUSH(C++)
 AC_CHECK_LIB([peutils], [PEUtils_Autoconf], [], [
     __checkInstall_PECo PEUtils
 ])
@@ -116,6 +117,7 @@ AC_CHECK_LIB([cotask], [PECoTask_Autoconf], [], [
 AC_CHECK_LIB([conet], [PECoNet_Autoconf], [], [
     __checkInstall_PECo PECoNet
 ])
+AC_LANG_POP(C++)
 
 # Checks for header files.
 AC_CHECK_HEADERS([arpa/inet.h fcntl.h float.h locale.h mach/mach.h netdb.h netinet/in.h stddef.h stdlib.h string.h sys/ioctl.h sys/socket.h sys/time.h sys/timeb.h syslog.h unistd.h wchar.h wctype.h])
