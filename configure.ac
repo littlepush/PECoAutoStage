@@ -95,6 +95,7 @@ AS_IF([test "x${FOUND_SSL_LIB_1_1}" == "xyes"], [
     ])
 ])
 AC_CHECK_LIB([z], [gzread], [], [AC_MSG_FAILURE([could not find libz])])
+AC_CHECK_LIB([dl], [dlopen], [], [AC_MSG_FAILURE([could not find libld])])
 
 AC_LANG_PUSH(C++)
 AC_CHECK_LIB([peco], [PEUtils_Autoconf], [], [
