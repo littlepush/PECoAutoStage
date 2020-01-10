@@ -238,7 +238,7 @@ void rek_scan_stages(
     } else if ( utils::is_folder_existed(_path) ) {
         std::shared_ptr< stage_group_t > _subgroup(new stage_group_t);
         _subgroup->name = _ftarget;
-        utils::rek_scan_dir(_path, 
+        utils::scan_dir(_path, 
             [&_subgroup](const std::string& item, bool is_folder) {
                 rek_scan_stages(_subgroup, item);
                 return true;
