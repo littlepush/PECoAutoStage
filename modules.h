@@ -34,8 +34,9 @@ SOFTWARE.
 #ifndef PECO_AUTO_STAGE_MODULES_H__
 #define PECO_AUTO_STAGE_MODULES_H__
 
-#include <peutils.h>
+#include <peco/peco.h>
 using namespace pe;
+using namespace pe::co;
 
 #include "rpn.h"
 

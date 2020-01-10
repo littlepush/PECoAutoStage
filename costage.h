@@ -34,8 +34,9 @@ SOFTWARE.
 #ifndef PECO_AUTO_STAGE_COSTAGE_H__
 #define PECO_AUTO_STAGE_COSTAGE_H__
 
-#include <peutils.h>
+#include <peco/peco.h>
 using namespace pe;
+using namespace pe::co;
 
 #include "rpn.h"
 #include "modules.h"

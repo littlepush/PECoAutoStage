@@ -34,11 +34,8 @@ SOFTWARE.
 #ifndef PECO_AUTO_STAGE_COSTAGE_RUNNER_H__
 #define PECO_AUTO_STAGE_COSTAGE_RUNNER_H__
 
-#include <peutils.h>
+#include <peco/peco.h>
 using namespace pe;
-
-#include <cotask.h>
-#include <conet.h>
 using namespace pe::co;
 
 #include "costage.h"

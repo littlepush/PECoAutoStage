@@ -34,7 +34,7 @@ SOFTWARE.
 #ifndef PECO_AUTO_STAGE_RPN_H__
 #define PECO_AUTO_STAGE_RPN_H__
 
-#include <peutils.h>
+#include <peco/peco.h>
 using namespace pe;
 
 namespace coas { namespace rpn {

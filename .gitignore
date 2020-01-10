@@ -30,3 +30,16 @@
 *.exe
 *.out
 *.app
+
+Makefile
+aclocal.m4
+*.cache
+*.log
+*.status
+*.deps
+libtool
+.dirstamp
+.libs
+bin
+coas
+report.html

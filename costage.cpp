@@ -30,9 +30,6 @@ SOFTWARE.
 */
 
 #include "costage.h"
-#include <cotask.h>
-
-using namespace pe::co;
 
 namespace coas {
     // Class: Stage 

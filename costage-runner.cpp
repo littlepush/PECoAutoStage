@@ -29,11 +29,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#include <peutils.h>
+#include <peco/peco.h>
 using namespace pe;
-
-#include <cotask.h>
-#include <conet.h>
 using namespace pe::co;
 
 #include "costage.h"
