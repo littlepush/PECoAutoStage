@@ -937,9 +937,8 @@ namespace coas {
             Json::Value &_jc = (*_pthis)["cookie"];
             std::list< std::string > _lcookie;
             for ( auto i = _jc.begin(); i != _jc.end(); ++i ) {
-                _lcookie.emplace_back( i.key().asString() + "=" + i->asString());
+                _req.cookie.set_cookie(i.key().asString(), i->asString());
             }
-            _req.header["cookie"] = utils::join(_lcookie, "; ");
         }
         if ( _pthis->isMember("body") && _req.method() != "GET" ) {
             std::string _body;
@@ -1004,16 +1003,12 @@ namespace coas {
             _jh[i->first] = i->second;
         }
         _jresp["header"] = _jh;
-        if ( _resp.header.contains("cookie") ) {
-            std::string _c = _resp.header["cookie"];
-            auto _cp = utils::split(_c, "; ");
-            Json::Value _jc(Json::objectValue);
-            for ( auto& c : _cp ) {
-                auto _ckv = utils::split(c, "=");
-                _jc[_ckv[0]] = (_ckv.size() == 2 ? _ckv[1] : "");
-            }
-            _jresp["cookie"] = _jc;
+        Json::Value _jc(Json::objectValue);
+        for ( auto _cit = _resp.cookie.begin(); _cit != _resp.cookie.end(); ++_cit ) {
+            _jc[_cit->first] = _jc[_cit->second.value];
         }
+        _jresp["cookie"] = _jc;
+        
         std::string _body;
         for ( auto i = _resp.body.begin(); i != _resp.body.end(); ++i ) {
             _body += *i;
