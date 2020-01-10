@@ -9,9 +9,7 @@ We use `$.assert` or `$.return` to determine if a stage is passed or failed.
 
 ### Dependence
 
-* [`PEUtils`](https://github.com/littlepush/PEUtils)
-* [`PECoTask`](https://github.com/littlepush/PECoTask)
-* [`PECoNet`](https://github.com/littlepush/PECoNet)
+* [`libpeco`](https://github.com/littlepush/libpeco)
 
 ### Build and Install
 
@@ -21,20 +19,17 @@ make && sudo make install
 
 The bin file will be found under `/usr/local/bin`
 
-#### Make a debug version
-
-```
-make -f Makefile.debug && sudo make -f Makefile.debug install
-```
-
-This will create a debug version of `coas` with filename `coasd`
-
 ### Usa a script
 
 ```
 curl -o- -SL "https://raw.githubusercontent.com/littlepush/PECoAutoStage/master/install_script.sh" | bash
 ```
 
+or
+
+```
+wget -O /dev/stdout "https://raw.githubusercontent.com/littlepush/PECoAutoStage/master/install_script.sh" | bash
+```
 
 
 ## costage file
@@ -43,17 +38,21 @@ A file with extension ".costage" is a costage file.
 
 We can run a single costage file or a folder contains several costage files.
 
+
+
+### Specifial costage file
+
 #### _begin.costage
 
 A specifial costage file named `_begin.costage` in the folder will be run before any other stages.
 
 the root JSON node of the begin stage will be copy to all other stage
 
-#### _final.costage
+#### _end.costage
 
-A specifial costage file named `_final.costage` in the folder will be run after all stages stop.
+A specifial costage file named `_end.costage` in the folder will be run after all stages stop.
 
-The root JSON node of `_final.costage` will be like the following:
+The root JSON node of `_end.costage` will be like the following:
 
 ```
 {
@@ -67,7 +66,37 @@ The root JSON node of `_final.costage` will be like the following:
 }
 ```
 
-You can write your own code in `_final.costage` to make a report.
+#### _report.costage
+
+After all stages been processed, coas will check if there is a `_report.costage` under the root folder.
+You can write your own code in `_report.costage` to send a report to other servers.
+
+The report's root JSON node should be:
+
+```
+{
+  "time": <all time used in mileseconds>,
+  "date": <begin timestamp>,
+  "workpath": "<workpath root>",
+  "filter": [
+    "<each filter arg>"
+  ],
+  "tags": [
+    ["<tag args>"]
+  ],
+  "passed": <passed stage count>,
+  "failed": <failed stage count>,
+  "unknown": <unknown stage count>,
+  "result": {
+    <all stages result>
+  }
+}
+```
+
+#### &lt;name&gt;.cobegin, &lt;name&gt;.coend
+
+These two files will be applied on `<name>.costage` , the cobegin file will be process before the costage file, and the coend file will be process after the costage file.
+
 
 
 ## Basic Code Syntax
