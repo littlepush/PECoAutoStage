@@ -1,9 +1,16 @@
 #! /bin/bash
 
-[[ ! ${PREFIX} ]] && PREFIX=/usr/local
+PLATFORM=`uname -m`
+
+[[ ! ${PREFIX} ]] && {
+    if [ "${PLATFORM}" == "Linux" ]; then
+        PREFIX=/usr
+    elif [ "${PLATFORM}" == "Darwin" ]; then
+        PREFIX=/usr/local
+    fi
+}
 
 NOW_PATH=`pwd`
-PLATFORM=`uname -m`
 SSLCONFIG=""
 TMP=`date +%s`
 
