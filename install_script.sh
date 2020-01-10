@@ -168,6 +168,10 @@ function installPECo_byGit() {
         installPECo_byFetch
     fi
     cd ../
+    which ldconfig >/dev/null 2>&
+    [[ $? -eq 0 ]] && {
+        echo "You should run ldconfig to refresh the runtime library path cache."
+    }
 }
 
 mkdir coas.${TMP}
