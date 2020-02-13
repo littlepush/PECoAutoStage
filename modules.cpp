@@ -1009,10 +1009,7 @@ namespace coas {
         }
         _jresp["cookie"] = _jc;
         
-        std::string _body;
-        for ( auto i = _resp.body.begin(); i != _resp.body.end(); ++i ) {
-            _body += *i;
-        }
+        std::string _body(_resp.body.raw());
         if ( _resp.header.contains("content-type") ) {
             std::string _ct = _resp.header["content-type"];
             auto _cts = utils::split(_ct, ";");
