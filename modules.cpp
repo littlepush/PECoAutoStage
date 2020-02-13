@@ -958,6 +958,9 @@ namespace coas {
                     if ( !_jb.isObject() ) {
                         Json::FastWriter _fw;
                         _body = _fw.write((*_pthis)["body"]);
+                        if ( !_req.header.contains("Content-Type") ) {
+                            _req.header["Content-Type"] = "application/json; utf-8";
+                        }
                     } else {
                         bool _validate_kv = true;
                         for ( auto i = _jb.begin(); i != _jb.end(); ++i ) {
@@ -1005,7 +1008,7 @@ namespace coas {
         _jresp["header"] = _jh;
         Json::Value _jc(Json::objectValue);
         for ( auto _cit = _resp.cookie.begin(); _cit != _resp.cookie.end(); ++_cit ) {
-            _jc[_cit->first] = _jc[_cit->second.value];
+            _jc[_cit->first] = _cit->second.value;
         }
         _jresp["cookie"] = _jc;
         

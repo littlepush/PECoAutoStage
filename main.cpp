@@ -1065,7 +1065,7 @@ void co_main( int argc, char* argv[] ) {
             std::cout << "Unknown: " << _unknow << std::endl;
         }
     }
-
+    loop::main.exit(0);
     return;
 }
 
