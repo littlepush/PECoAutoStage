@@ -395,7 +395,7 @@ void run_single_stage(
     Json::Value& report_node,
     const std::string& stage_file
 ) {
-    loop::main.do_job([stage_root, &report_node, stage_file]() {
+    this_loop.do_job([stage_root, &report_node, stage_file]() {
         process _fchild(g_binary);
         _fchild << 
             "--no-report" << 
@@ -408,10 +408,10 @@ void run_single_stage(
         report_node["console"] = Json::Value(Json::arrayValue);
         Json::Value& _jconsole = report_node["console"];
         bool _eol = true;
-        _fchild.stdout = [&_oss](std::string&& data) {
+        _fchild.std_out = [&_oss](std::string&& data) {
             _oss << data;
         };
-        _fchild.stderr = [&_jconsole, &_eol](std::string&& data) {
+        _fchild.std_err = [&_jconsole, &_eol](std::string&& data) {
             auto _lines = utils::split(data, "\n");
             if ( _lines.size() == 0 ) {
                 _eol = true;
@@ -429,7 +429,7 @@ void run_single_stage(
         };
         int _ret = 99;
         this_task::begin_tick();
-        loop::main.do_job([&_fchild, &_ret]() {
+        this_loop.do_job([&_fchild, &_ret]() {
             parent_task::guard _pg;
             _ret = _fchild.run();
         });
@@ -1065,13 +1065,13 @@ void co_main( int argc, char* argv[] ) {
             std::cout << "Unknown: " << _unknow << std::endl;
         }
     }
-    loop::main.exit(0);
+    this_loop.exit(0);
     return;
 }
 
 int main( int argc, char* argv[] ) {
-    loop::main.do_job(std::bind(&co_main, argc, argv));
-    loop::main.run();
+    this_loop.do_job(std::bind(&co_main, argc, argv));
+    this_loop.run();
     for ( void *_m : g_modules ) {
         dlclose(_m);
     }
