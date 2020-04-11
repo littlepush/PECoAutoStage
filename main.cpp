@@ -408,10 +408,10 @@ void run_single_stage(
         report_node["console"] = Json::Value(Json::arrayValue);
         Json::Value& _jconsole = report_node["console"];
         bool _eol = true;
-        _fchild.std_out = [&_oss](std::string&& data) {
+        _fchild.stdout_cb = [&_oss](std::string&& data) {
             _oss << data;
         };
-        _fchild.std_err = [&_jconsole, &_eol](std::string&& data) {
+        _fchild.stderr_cb = [&_jconsole, &_eol](std::string&& data) {
             auto _lines = utils::split(data, "\n");
             if ( _lines.size() == 0 ) {
                 _eol = true;
